@@ -183,7 +183,7 @@ umidi20_watchdog_alloc(void *arg)
 	    }
 	    pthread_mutex_unlock(&(root_dev.mutex));
 
-	    usleep(100000);
+	    while (usleep(100000)) ;
 
 	    pthread_mutex_lock(&(root_dev.mutex));
 	}
@@ -224,7 +224,7 @@ umidi20_watchdog_play_rec(void *arg)
 
 	    pthread_mutex_unlock(&(root_dev.mutex));
 
-	    usleep(1000);
+	    while (usleep(1000)) ;
 
 	    pthread_mutex_lock(&(root_dev.mutex));
 	}
