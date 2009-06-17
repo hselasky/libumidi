@@ -28,4 +28,3 @@
 #include <stdio.h>
 
 #include "umidi20.h"
-
