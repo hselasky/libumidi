@@ -53,10 +53,10 @@ umidi20_watchdog_play_rec(void *arg);
 static void
 umidi20_watchdog_record_sub(struct umidi20_device *dev,
 			    struct umidi20_device *play_dev,
-			    u_int32_t position, u_int32_t effects);
+			    uint32_t position, uint32_t effects);
 static void
 umidi20_watchdog_play_sub(struct umidi20_device *dev, 
-			  u_int32_t position);
+			  uint32_t position);
 static void
 umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev, 
 				    struct umidi20_event *event);
@@ -78,7 +78,7 @@ struct umidi20_root_device root_dev;
 void
 umidi20_init(void)
 {
-	u_int32_t x;
+	uint32_t x;
 
 	umidi20_mutex_init(&(root_dev.mutex));
 
@@ -140,7 +140,7 @@ static void
 umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *p_mtx)
 {
 	pthread_t td;
-	u_int8_t recurse = 0;
+	uint8_t recurse = 0;
 
 	pthread_mutex_assert(p_mtx, MA_OWNED);
 
@@ -197,8 +197,8 @@ static void *
 umidi20_watchdog_play_rec(void *arg)
 {
 	struct timespec ts = { 0, 0 };
-	u_int32_t position;
-	u_int32_t x;
+	uint32_t position;
+	uint32_t x;
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
@@ -237,11 +237,11 @@ umidi20_watchdog_play_rec(void *arg)
 static void
 umidi20_watchdog_record_sub(struct umidi20_device *dev,
 			    struct umidi20_device *play_dev,
-			    u_int32_t curr_position, u_int32_t effect)
+			    uint32_t curr_position, uint32_t effect)
 {
 	struct umidi20_event *event;
 	struct umidi20_event *event_copy;
-	u_int8_t cmd;
+	uint8_t cmd;
 
 	curr_position -= dev->start_position;
 
@@ -301,13 +301,13 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 
 static void
 umidi20_watchdog_play_sub(struct umidi20_device *dev, 
-			  u_int32_t curr_position)
+			  uint32_t curr_position)
 {
 	struct umidi20_event *event;
 	struct umidi20_event *event_root;
-	u_int32_t delta_position;
+	uint32_t delta_position;
 
-	u_int8_t len;
+	uint8_t len;
 
 	/* playback */
 
@@ -369,7 +369,7 @@ static void
 umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev, 
 				    struct umidi20_event *event)
 {
-	u_int32_t offset;
+	uint32_t offset;
 
 	/* check for key start */
 
@@ -393,7 +393,7 @@ static void *
 umidi20_watchdog_files(void *arg)
 {
 	struct umidi20_device *dev;
-	u_int32_t x;
+	uint32_t x;
 	int file_no;
 	int err;
 
@@ -466,7 +466,7 @@ umidi20_watchdog_files(void *arg)
  *       1 - use cache
  */
 struct umidi20_event *
-umidi20_event_alloc(struct umidi20_event ***ppp_next, u_int8_t flag)
+umidi20_event_alloc(struct umidi20_event ***ppp_next, uint8_t flag)
 {
 	struct umidi20_event *event = NULL;
 	if (flag == 1) {
@@ -501,7 +501,7 @@ umidi20_event_free(struct umidi20_event *event)
 }
 
 struct umidi20_event *
-umidi20_event_copy(struct umidi20_event *event, u_int8_t flag)
+umidi20_event_copy(struct umidi20_event *event, uint8_t flag)
 {
 	struct umidi20_event *p_curr;
 	struct umidi20_event *p_next = NULL;
@@ -533,16 +533,16 @@ umidi20_event_copy(struct umidi20_event *event, u_int8_t flag)
 }
 
 struct umidi20_event *
-umidi20_event_from_data(const u_int8_t *data_ptr, 
-			u_int32_t data_len, u_int8_t flag)
+umidi20_event_from_data(const uint8_t *data_ptr, 
+			uint32_t data_len, uint8_t flag)
 {
 	struct umidi20_event *p_curr = NULL;
 	struct umidi20_event *p_next = NULL;
 	struct umidi20_event **pp_next = &p_next;
-	u_int8_t i;
-	u_int8_t cont = 0;
-	static const u_int8_t p0 = 0;
-	static const u_int8_t s0 = 0;
+	uint8_t i;
+	uint8_t cont = 0;
+	static const uint8_t p0 = 0;
+	static const uint8_t s0 = 0;
 
 	if (data_len == 0) {
 	    goto fail;
@@ -586,7 +586,7 @@ umidi20_event_from_data(const u_int8_t *data_ptr,
 	return NULL;
 }
 
-u_int32_t
+uint32_t
 umidi20_event_get_what(struct umidi20_event *event)
 {
 	if (event == NULL) {
@@ -622,21 +622,21 @@ umidi20_event_get_what(struct umidi20_event *event)
 	return 0;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_is_meta(struct umidi20_event *event)
 {
 	return ((umidi20_event_get_length_first(event) > 1) &&
 		(event->cmd[1] == 0xFF));
 }
 
-u_int8_t
+uint8_t
 umidi20_event_is_key_start(struct umidi20_event *event)
 {
 	if (event == NULL) return 0;
 	return (((event->cmd[1] & 0xF0) == 0x90) && event->cmd[3]);
 }
 
-u_int8_t
+uint8_t
 umidi20_event_is_key_end(struct umidi20_event *event)
 {
 	if (event == NULL) return 0;
@@ -644,7 +644,7 @@ umidi20_event_is_key_end(struct umidi20_event *event)
 		(((event->cmd[1] & 0xF0) == 0x90) && (event->cmd[3] == 0)));
 }
 
-u_int8_t
+uint8_t
 umidi20_event_is_tempo(struct umidi20_event *event)
 {
 	if (event == NULL) return 0;
@@ -652,7 +652,7 @@ umidi20_event_is_tempo(struct umidi20_event *event)
 		(event->cmd[2] == 0x51));
 }
 
-u_int8_t
+uint8_t
 umidi20_event_is_voice(struct umidi20_event *event)
 {
 	if (event == NULL) return 0;
@@ -660,25 +660,25 @@ umidi20_event_is_voice(struct umidi20_event *event)
 		(event->cmd[1] <= 0xEF));
 }
 
-u_int8_t
+uint8_t
 umidi20_event_is_sysex(struct umidi20_event *event)
 {
 	if (event == NULL) return 0;
 	return (event->cmd[1] == 0xF0);
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_channel(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	return ((what & UMIDI20_WHAT_CHANNEL) ? 
 		(event->cmd[1] & 0x0F) : 0);
 }
 
 void
-umidi20_event_set_channel(struct umidi20_event *event, u_int8_t c)
+umidi20_event_set_channel(struct umidi20_event *event, uint8_t c)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_CHANNEL) {
 	    event->cmd[1] &= 0xF0;
 	    event->cmd[1] |= (c & 0x0F);
@@ -686,46 +686,46 @@ umidi20_event_set_channel(struct umidi20_event *event, u_int8_t c)
 	return;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_key(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	return ((what & UMIDI20_WHAT_KEY) ? 
 		event->cmd[2] : 0);
 }
 
 void
-umidi20_event_set_key(struct umidi20_event *event, u_int8_t k)
+umidi20_event_set_key(struct umidi20_event *event, uint8_t k)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_KEY) {
 	    event->cmd[2] = k & 0x7F;
 	}
 	return;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_velocity(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	return ((what & UMIDI20_WHAT_VELOCITY) ? 
 		event->cmd[3] : 0);
 }
 
 void
-umidi20_event_set_velocity(struct umidi20_event *event, u_int8_t k)
+umidi20_event_set_velocity(struct umidi20_event *event, uint8_t k)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_VELOCITY) {
 	    event->cmd[3] = k & 0x7F;
 	}
 	return;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_pressure(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_CHANNEL_PRESSURE) {
 	    return event->cmd[2];
 	}
@@ -736,9 +736,9 @@ umidi20_event_get_pressure(struct umidi20_event *event)
 }
 
 void
-umidi20_event_set_pressure(struct umidi20_event *event, u_int8_t p)
+umidi20_event_set_pressure(struct umidi20_event *event, uint8_t p)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_CHANNEL_PRESSURE) {
 	    event->cmd[2] = p & 0x7F;
 	}
@@ -748,72 +748,72 @@ umidi20_event_set_pressure(struct umidi20_event *event, u_int8_t p)
 	return;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_control_address(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	return ((what & UMIDI20_WHAT_CONTROL_ADDRESS) ?
 		event->cmd[2] : 0);
 }
 
 void
-umidi20_event_set_control_address(struct umidi20_event *event, u_int8_t a)
+umidi20_event_set_control_address(struct umidi20_event *event, uint8_t a)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_CONTROL_ADDRESS) {
 	    event->cmd[2] = a & 0x7F;
 	}
 	return;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_control_value(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	return ((what & UMIDI20_WHAT_CONTROL_VALUE) ?
 		event->cmd[3] : 0);
 }
 
 void
-umidi20_event_set_control_value(struct umidi20_event *event, u_int8_t a)
+umidi20_event_set_control_value(struct umidi20_event *event, uint8_t a)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_CONTROL_VALUE) {
 	    event->cmd[3] = a & 0x7F;
 	}
 	return;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_program_number(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	return ((what & UMIDI20_WHAT_PROGRAM_VALUE) ?
 		event->cmd[2] : 0);
 }
 
 void
-umidi20_event_set_program_number(struct umidi20_event *event, u_int8_t n)
+umidi20_event_set_program_number(struct umidi20_event *event, uint8_t n)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_PROGRAM_VALUE) {
 	    event->cmd[2] = n & 0x7F;
 	}
 	return;
 }
 
-u_int16_t
+uint16_t
 umidi20_event_get_pitch_value(struct umidi20_event *event)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	return ((what & UMIDI20_WHAT_PITCH_BEND) ?
 		(event->cmd[2] | (event->cmd[3] << 7)) : 0);
 }
 
 void
-umidi20_event_set_pitch_value(struct umidi20_event *event, u_int16_t n)
+umidi20_event_set_pitch_value(struct umidi20_event *event, uint16_t n)
 {
-	u_int32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 	if (what & UMIDI20_WHAT_PITCH_BEND) {
 	    event->cmd[2] = n & 0x7F;
 	    event->cmd[3] = (n >> 7) & 0x7F;
@@ -821,10 +821,10 @@ umidi20_event_set_pitch_value(struct umidi20_event *event, u_int16_t n)
 	return;
 }
 
-u_int32_t
+uint32_t
 umidi20_event_get_length_first(struct umidi20_event *event)
 {
-	u_int32_t len;
+	uint32_t len;
 	if (event) {
 	    len = umidi20_command_to_len[event->cmd[0] & 0xF];
 	} else {
@@ -833,10 +833,10 @@ umidi20_event_get_length_first(struct umidi20_event *event)
 	return len;
 }
 
-u_int32_t
+uint32_t
 umidi20_event_get_length(struct umidi20_event *event)
 {
-	u_int32_t len = 0;
+	uint32_t len = 0;
 
 	while (event) {
 	    len += umidi20_command_to_len[event->cmd[0] & 0xF];
@@ -846,10 +846,10 @@ umidi20_event_get_length(struct umidi20_event *event)
 }
 
 void
-umidi20_event_copy_out(struct umidi20_event *event, u_int8_t *dst,
-		       u_int32_t offset, u_int32_t len)
+umidi20_event_copy_out(struct umidi20_event *event, uint8_t *dst,
+		       uint32_t offset, uint32_t len)
 {
-    u_int32_t part_len;
+    uint32_t part_len;
 
     while (offset > 0) {
         part_len = umidi20_command_to_len[event->cmd[0] & 0xF];
@@ -881,7 +881,7 @@ umidi20_event_copy_out(struct umidi20_event *event, u_int8_t *dst,
     return;
 }
 
-u_int8_t
+uint8_t
 umidi20_event_get_meta_number(struct umidi20_event *event)
 {
 	return (umidi20_event_is_meta(event) ? 
@@ -889,7 +889,7 @@ umidi20_event_get_meta_number(struct umidi20_event *event)
 }
 
 void
-umidi20_event_set_meta_number(struct umidi20_event *event, u_int8_t n)
+umidi20_event_set_meta_number(struct umidi20_event *event, uint8_t n)
 {
 	if (umidi20_event_is_meta(event)) {
 	    event->cmd[2] = n & 0x7F;
@@ -897,10 +897,10 @@ umidi20_event_set_meta_number(struct umidi20_event *event, u_int8_t n)
 	return;
 }
 
-u_int32_t
+uint32_t
 umidi20_event_get_tempo(struct umidi20_event *event)
 {
-	u_int32_t tempo;
+	uint32_t tempo;
 
 	if (!umidi20_event_is_tempo(event)) {
 	    tempo = 1;
@@ -923,7 +923,7 @@ umidi20_event_get_tempo(struct umidi20_event *event)
 
 void
 umidi20_event_set_tempo(struct umidi20_event *event, 
-			u_int32_t tempo)
+			uint32_t tempo)
 {
 	if (!umidi20_event_is_tempo(event)) {
 	    return;
@@ -948,7 +948,7 @@ umidi20_event_set_tempo(struct umidi20_event *event,
 
 struct umidi20_event *
 umidi20_event_queue_search(struct umidi20_event_queue *queue, 
-			   u_int32_t position, u_int8_t cache_no)
+			   uint32_t position, uint8_t cache_no)
 {
 	struct umidi20_event *event = queue->ifq_cache[cache_no];
 
@@ -988,9 +988,9 @@ umidi20_event_queue_search(struct umidi20_event_queue *queue,
 void
 umidi20_event_queue_copy(struct umidi20_event_queue *src, 
 			 struct umidi20_event_queue *dst,
-			 u_int32_t pos_a, u_int32_t pos_b,
-			 u_int16_t rev_a, u_int16_t rev_b,
-			 u_int8_t cache_no, u_int8_t flag)
+			 uint32_t pos_a, uint32_t pos_b,
+			 uint16_t rev_a, uint16_t rev_b,
+			 uint8_t cache_no, uint8_t flag)
 {
 	struct umidi20_event *event_a;
 	struct umidi20_event *event_b;
@@ -1025,9 +1025,9 @@ umidi20_event_queue_copy(struct umidi20_event_queue *src,
 void
 umidi20_event_queue_move(struct umidi20_event_queue *src, 
 			 struct umidi20_event_queue *dst,
-			 u_int32_t pos_a, u_int32_t pos_b,  
-			 u_int16_t rev_a, u_int16_t rev_b,
-			 u_int8_t cache_no)
+			 uint32_t pos_a, uint32_t pos_b,  
+			 uint16_t rev_a, uint16_t rev_b,
+			 uint8_t cache_no)
 {
 	struct umidi20_event *event_a;
 	struct umidi20_event *event_b;
@@ -1064,7 +1064,7 @@ umidi20_event_queue_move(struct umidi20_event_queue *src,
 void
 umidi20_event_queue_insert(struct umidi20_event_queue *dst, 
 			   struct umidi20_event *event_n, 
-			   u_int8_t cache_no)
+			   uint8_t cache_no)
 {
 	struct umidi20_event *event_a = 
 	  umidi20_event_queue_search(dst, event_n->position+1, cache_no);
@@ -1106,11 +1106,11 @@ umidi20_event_queue_drain(struct umidi20_event_queue *src)
  *    0: No command
  * Else: Command is complete
  */
-u_int8_t
-umidi20_convert_to_command(struct umidi20_converter *conv, u_int8_t b)
+uint8_t
+umidi20_convert_to_command(struct umidi20_converter *conv, uint8_t b)
 {
-	static const u_int8_t p0 = 0x0;
-	static const u_int8_t s0 = 0x0;
+	static const uint8_t p0 = 0x0;
+	static const uint8_t s0 = 0x0;
 
 	if (b >= 0xf8) {
 	    conv->temp_0[0] = p0 | 0x01 | 0x8;
@@ -1306,7 +1306,7 @@ umidi20_convert_to_command(struct umidi20_converter *conv, u_int8_t b)
 
 struct umidi20_event *
 umidi20_convert_to_event(struct umidi20_converter *conv, 
-			 u_int8_t b, u_int8_t flag)
+			 uint8_t b, uint8_t flag)
 {
 	struct umidi20_event *event = NULL;
 
@@ -1350,7 +1350,7 @@ umidi20_convert_reset(struct umidi20_converter *conv)
 }
 
 const
-u_int8_t umidi20_command_to_len[16] = {
+uint8_t umidi20_command_to_len[16] = {
 
     /* Long MIDI commands */
 
@@ -1384,7 +1384,7 @@ umidi20_gettime(struct timespec *ts)
 	return;
 }
 
-u_int32_t
+uint32_t
 umidi20_difftime(struct timespec *a, struct timespec *b)
 {
 	struct timespec c;
@@ -1411,8 +1411,8 @@ umidi20_mutex_init(pthread_mutex_t *pmutex)
 
 static void
 umidi20_device_start(struct umidi20_device *dev,
-		     u_int32_t start_position, 
-		     u_int32_t end_offset)
+		     uint32_t start_position, 
+		     uint32_t end_offset)
 {
 	dev->start_position = start_position;
 	dev->end_offset = end_offset;
@@ -1423,8 +1423,8 @@ umidi20_device_start(struct umidi20_device *dev,
 static void
 umidi20_device_stop(struct umidi20_device *dev)
 {
-	u_int32_t y;
-	u_int8_t buf[3];
+	uint32_t y;
+	uint8_t buf[3];
 
 	dev->enabled_usr = 0;
 	umidi20_convert_reset(&(dev->conv));
@@ -1448,7 +1448,7 @@ umidi20_device_stop(struct umidi20_device *dev)
 }
 
 static void
-umidi20_put_queue(u_int8_t device_no, 
+umidi20_put_queue(uint8_t device_no, 
 		  struct umidi20_event *event)
 {
 	struct umidi20_device *dev;
@@ -1476,7 +1476,7 @@ umidi20_put_queue(u_int8_t device_no,
 }
 
 static struct umidi20_event *
-umidi20_get_queue(u_int8_t device_no)
+umidi20_get_queue(uint8_t device_no)
 {
 	struct umidi20_device *dev;
 	struct umidi20_event *event;
@@ -1512,10 +1512,10 @@ umidi20_get_curr_time(void)
 }
 
 void
-umidi20_start(u_int32_t start_offset, u_int32_t end_offset, u_int8_t flag)
+umidi20_start(uint32_t start_offset, uint32_t end_offset, uint8_t flag)
 {
-	u_int32_t x;
-	u_int32_t start_position;
+	uint32_t x;
+	uint32_t start_position;
 
 	if (flag == 0) {
 	    return;
@@ -1555,9 +1555,9 @@ umidi20_start(u_int32_t start_offset, u_int32_t end_offset, u_int8_t flag)
 }
 
 void
-umidi20_stop(u_int8_t flag)
+umidi20_stop(uint8_t flag)
 {
-	u_int32_t x;
+	uint32_t x;
 
 	if (flag == 0) {
 	    return;
@@ -1579,11 +1579,11 @@ umidi20_stop(u_int8_t flag)
 	return;
 }
 
-u_int8_t
-umidi20_all_dev_off(u_int8_t flag)
+uint8_t
+umidi20_all_dev_off(uint8_t flag)
 {
-	u_int32_t x;
-	u_int8_t retval = 1;
+	uint32_t x;
+	uint8_t retval = 1;
 
 	if (flag == 0) {
 	    goto done;
@@ -1612,8 +1612,8 @@ umidi20_all_dev_off(u_int8_t flag)
 }
 
 struct umidi20_song *
-umidi20_song_alloc(pthread_mutex_t *p_mtx, u_int16_t file_format, 
-		   u_int16_t resolution, u_int8_t div_type)
+umidi20_song_alloc(pthread_mutex_t *p_mtx, uint16_t file_format, 
+		   uint16_t resolution, uint8_t div_type)
 {
 	struct umidi20_song *song = malloc(sizeof(*song));
 	if (song) {
@@ -1676,9 +1676,9 @@ umidi20_watchdog_song_sub(struct umidi20_song *song)
 	struct umidi20_track *track;
 	struct umidi20_event *event;
 	struct umidi20_event_queue queue;
-	u_int32_t curr_position;
-	u_int32_t position;
-	u_int32_t x;
+	uint32_t curr_position;
+	uint32_t position;
+	uint32_t x;
 
 	pthread_mutex_assert(song->p_mtx, MA_OWNED);
 
@@ -1769,7 +1769,7 @@ umidi20_watchdog_song(void *arg)
 }
 
 struct umidi20_track *
-umidi20_song_track_by_unit(struct umidi20_song *song, u_int16_t unit)
+umidi20_song_track_by_unit(struct umidi20_song *song, uint16_t unit)
 {
 	struct umidi20_track *track;
 
@@ -1812,11 +1812,11 @@ umidi20_song_set_record_track(struct umidi20_song *song,
  * multiple times in a row:
  */
 void
-umidi20_song_start(struct umidi20_song *song, u_int32_t start_offset, 
-		   u_int32_t end_offset, 
-		   u_int8_t flags)
+umidi20_song_start(struct umidi20_song *song, uint32_t start_offset, 
+		   uint32_t end_offset, 
+		   uint8_t flags)
 {
-	u_int32_t curr_position;
+	uint32_t curr_position;
 
 	if (song == NULL) {
 	    goto done;
@@ -1867,7 +1867,7 @@ umidi20_song_start(struct umidi20_song *song, u_int32_t start_offset,
 }
 
 void
-umidi20_song_stop(struct umidi20_song *song, u_int8_t flags)
+umidi20_song_stop(struct umidi20_song *song, uint8_t flags)
 {
 	if (song == NULL) {
 	    goto done;
@@ -1901,7 +1901,7 @@ void
 umidi20_song_track_add(struct umidi20_song *song, 
 		       struct umidi20_track *track_ref,
 		       struct umidi20_track *track_new,
-		       u_int8_t is_before_ref)
+		       uint8_t is_before_ref)
 {
 	pthread_mutex_assert(song->p_mtx, MA_OWNED);
 
@@ -1951,13 +1951,13 @@ umidi20_song_recompute_position(struct umidi20_song *song)
 	struct umidi20_event *event;
 	struct umidi20_event *event_copy;
 
-	u_int32_t tempo;
-	u_int32_t last_tick;
-	u_int32_t delta_tick;
-	u_int32_t factor;
-	u_int32_t position_curr;
-	u_int32_t position_rem;
-	u_int32_t divisor;
+	uint32_t tempo;
+	uint32_t last_tick;
+	uint32_t delta_tick;
+	uint32_t factor;
+	uint32_t position_curr;
+	uint32_t position_rem;
+	uint32_t divisor;
 
 	if (song == NULL) {
 	    return;
@@ -2150,7 +2150,7 @@ umidi20_song_compute_max_min(struct umidi20_song *song)
 void
 umidi20_config_export(struct umidi20_config *cfg)
 {
-	u_int32_t x;
+	uint32_t x;
 
 	bzero(cfg, sizeof(*cfg));
 
@@ -2182,7 +2182,7 @@ umidi20_config_export(struct umidi20_config *cfg)
 void
 umidi20_config_import(struct umidi20_config *cfg)
 {
-	u_int32_t x;
+	uint32_t x;
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
@@ -2257,11 +2257,11 @@ umidi20_track_compute_max_min(struct umidi20_track *track)
 	struct umidi20_event *event;
 	struct umidi20_event *event_last;
 	struct umidi20_event *last_key_press[128];
-	u_int32_t what;
-	u_int8_t key;
-	u_int8_t is_on;
-	u_int8_t is_off;
-	u_int8_t meta_num;
+	uint32_t what;
+	uint8_t key;
+	uint8_t is_on;
+	uint8_t is_off;
+	uint8_t meta_num;
 
 	bzero(&last_key_press, sizeof(last_key_press));
 

@@ -23,10 +23,14 @@
  * SUCH DAMAGE.
  */
 
+#ifndef _UMIDI20_H_
+#define	_UMIDI20_H_
+
 #include <sys/cdefs.h>
 #include <sys/param.h>
 
 #include <pthread.h>
+#include <signal.h>
 
 __BEGIN_DECLS
 
@@ -230,10 +234,10 @@ struct umidi20_converter {
     struct umidi20_event **pp_next;
     struct umidi20_event *p_next;
 
-    u_int8_t * temp_cmd;
-    u_int8_t temp_0[UMIDI20_COMMAND_LEN];
-    u_int8_t temp_1[UMIDI20_COMMAND_LEN];
-    u_int8_t state;
+    uint8_t * temp_cmd;
+    uint8_t temp_0[UMIDI20_COMMAND_LEN];
+    uint8_t temp_1[UMIDI20_COMMAND_LEN];
+    uint8_t state;
 #define UMIDI20_ST_UNKNOWN   0 /* scan for command */
 #define UMIDI20_ST_1PARAM    1
 #define UMIDI20_ST_2PARAM_1  2
@@ -254,13 +258,13 @@ struct umidi20_event {
     struct umidi20_event *p_nextpkt;
     struct umidi20_event *p_prevpkt;
     struct umidi20_event *p_next;
-    u_int32_t position; /* milliseconds */
-    u_int32_t tick; /* units */
-    u_int32_t duration; /* milliseconds */
-    u_int16_t revision; /* unit */
-    u_int8_t device_no; /* device number */
-    u_int8_t unused;
-    u_int8_t cmd[UMIDI20_COMMAND_LEN];
+    uint32_t position; /* milliseconds */
+    uint32_t tick; /* units */
+    uint32_t duration; /* milliseconds */
+    uint16_t revision; /* unit */
+    uint8_t device_no; /* device number */
+    uint8_t unused;
+    uint8_t cmd[UMIDI20_COMMAND_LEN];
 };
 
 /*--------------------------------------------------------------------------*
@@ -269,13 +273,13 @@ struct umidi20_event {
 struct umidi20_config_dev {
 	char rec_fname[128];
 	char play_fname[128];
-	u_int8_t rec_enabled_cfg;
-	u_int8_t play_enabled_cfg;
+	uint8_t rec_enabled_cfg;
+	uint8_t play_enabled_cfg;
 };
 
 struct umidi20_config {
 	struct umidi20_config_dev cfg_dev[UMIDI20_N_DEVICES];
-	u_int32_t effects;
+	uint32_t effects;
 #define UMIDI20_EFFECT_LOOPBACK   0x0001
 #define UMIDI20_EFFECT_KEYCOMPL_1 0x0002
 #define UMIDI20_EFFECT_KEYCOMPL_2 0x0004
@@ -290,19 +294,19 @@ struct umidi20_device {
     struct umidi20_event_queue queue;
     struct umidi20_converter conv;
 
-    u_int32_t start_position;
-    u_int32_t end_offset;
+    uint32_t start_position;
+    uint32_t end_offset;
 
     int32_t file_no; /* I/O device */
 
-    u_int8_t device_no; /* device number */
+    uint8_t device_no; /* device number */
 
-    u_int8_t enabled_usr; /* enabled by user */
-    u_int8_t enabled_cfg; /* enabled by config */
-    u_int8_t update;
-    u_int8_t fname[128];
+    uint8_t enabled_usr; /* enabled by user */
+    uint8_t enabled_cfg; /* enabled by config */
+    uint8_t update;
+    char fname[128];
 
-    u_int8_t key_on_table[((128*16)+7) / 8];
+    uint8_t key_on_table[((128*16)+7) / 8];
 };
 
 /*--------------------------------------------------------------------------*
@@ -320,8 +324,8 @@ struct umidi20_root_device {
     pthread_t thread_play_rec;
     pthread_t thread_files;
 
-    u_int32_t effects;
-    u_int32_t curr_position;
+    uint32_t effects;
+    uint32_t curr_position;
 };
 
 extern struct umidi20_root_device root_dev;
@@ -335,21 +339,21 @@ struct umidi20_track {
     struct umidi20_track *p_nextpkt;
     struct umidi20_track *p_prevpkt;
 
-    u_int32_t position_max;
+    uint32_t position_max;
 
-    u_int8_t mute_flag;
-    u_int8_t selected_flag;
-    u_int8_t draw_flag;
-    u_int8_t temp_flag;
+    uint8_t mute_flag;
+    uint8_t selected_flag;
+    uint8_t draw_flag;
+    uint8_t temp_flag;
 
-    u_int8_t key_min;
-    u_int8_t key_max;
+    uint8_t key_min;
+    uint8_t key_max;
 
-    u_int8_t band_min;
-    u_int8_t band_max;
+    uint8_t band_min;
+    uint8_t band_max;
 
-    u_int8_t name[256];
-    u_int8_t instrument[256];
+    uint8_t name[256];
+    uint8_t instrument[256];
 };
 
 /*--------------------------------------------------------------------------*
@@ -366,24 +370,24 @@ struct umidi20_song {
     pthread_mutex_t * p_mtx;
     pthread_t thread_io;
 
-    u_int32_t play_start_position;
-    u_int32_t play_end_offset;
-    u_int32_t play_start_offset;
-    u_int32_t play_last_offset;
-    u_int32_t position_max;
-    u_int32_t track_max;
-    u_int32_t band_max;
+    uint32_t play_start_position;
+    uint32_t play_end_offset;
+    uint32_t play_start_offset;
+    uint32_t play_last_offset;
+    uint32_t position_max;
+    uint32_t track_max;
+    uint32_t band_max;
 
-    u_int16_t midi_file_format;
-    u_int16_t midi_resolution;
-    u_int16_t record_track;
+    uint16_t midi_file_format;
+    uint16_t midi_resolution;
+    uint16_t record_track;
 
-    u_int8_t midi_division_type;
+    uint8_t midi_division_type;
 
-    u_int8_t play_enabled;
-    u_int8_t rec_enabled;
+    uint8_t play_enabled;
+    uint8_t rec_enabled;
 
-    u_int8_t pc_flags; /* play and record flags */
+    uint8_t pc_flags; /* play and record flags */
 
     char filename[MAXPATHLEN];
 };
@@ -396,180 +400,180 @@ extern void
 umidi20_init(void);
 
 extern struct umidi20_event *
-umidi20_event_alloc(struct umidi20_event ***ppp_next, u_int8_t flag);
+umidi20_event_alloc(struct umidi20_event ***ppp_next, uint8_t flag);
 
 extern void
 umidi20_event_free(struct umidi20_event *event);
 
 extern struct umidi20_event *
-umidi20_event_copy(struct umidi20_event *event, u_int8_t flag);
+umidi20_event_copy(struct umidi20_event *event, uint8_t flag);
 
 extern struct umidi20_event *
-umidi20_event_from_data(const u_int8_t *data_ptr, 
-			u_int32_t data_len, u_int8_t flag);
-extern u_int32_t
+umidi20_event_from_data(const uint8_t *data_ptr, 
+			uint32_t data_len, uint8_t flag);
+extern uint32_t
 umidi20_event_get_what(struct umidi20_event *event);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_is_key_start(struct umidi20_event *event);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_is_key_end(struct umidi20_event *event);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_is_tempo(struct umidi20_event *event);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_is_voice(struct umidi20_event *event);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_is_sysex(struct umidi20_event *event);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_get_channel(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_channel(struct umidi20_event *event, u_int8_t c);
+umidi20_event_set_channel(struct umidi20_event *event, uint8_t c);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_get_key(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_key(struct umidi20_event *event, u_int8_t k);
+umidi20_event_set_key(struct umidi20_event *event, uint8_t k);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_get_velocity(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_velocity(struct umidi20_event *event, u_int8_t v);
+umidi20_event_set_velocity(struct umidi20_event *event, uint8_t v);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_get_pressure(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_pressure(struct umidi20_event *event, u_int8_t p);
+umidi20_event_set_pressure(struct umidi20_event *event, uint8_t p);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_get_control_address(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_control_address(struct umidi20_event *event, u_int8_t a);
+umidi20_event_set_control_address(struct umidi20_event *event, uint8_t a);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_get_control_value(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_control_value(struct umidi20_event *event, u_int8_t a);
+umidi20_event_set_control_value(struct umidi20_event *event, uint8_t a);
 
-extern u_int8_t
+extern uint8_t
 umidi20_event_get_program_number(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_program_number(struct umidi20_event *event, u_int8_t n);
+umidi20_event_set_program_number(struct umidi20_event *event, uint8_t n);
 
-extern u_int16_t
+extern uint16_t
 umidi20_event_get_pitch_value(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_pitch_value(struct umidi20_event *event, u_int16_t n);
+umidi20_event_set_pitch_value(struct umidi20_event *event, uint16_t n);
 
-extern u_int32_t
+extern uint32_t
 umidi20_event_get_length_first(struct umidi20_event *event);
 
-extern u_int32_t
+extern uint32_t
 umidi20_event_get_length(struct umidi20_event *event);
 
 extern void
-umidi20_event_copy_out(struct umidi20_event *event, u_int8_t *dst,
-		       u_int32_t offset, u_int32_t len);
-extern u_int8_t
+umidi20_event_copy_out(struct umidi20_event *event, uint8_t *dst,
+		       uint32_t offset, uint32_t len);
+extern uint8_t
 umidi20_event_get_meta_number(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_meta_number(struct umidi20_event *event, u_int8_t n);
+umidi20_event_set_meta_number(struct umidi20_event *event, uint8_t n);
 
-extern u_int32_t
+extern uint32_t
 umidi20_event_get_tempo(struct umidi20_event *event);
 
 extern void
-umidi20_event_set_tempo(struct umidi20_event *event, u_int32_t tempo);
+umidi20_event_set_tempo(struct umidi20_event *event, uint32_t tempo);
 
 extern struct umidi20_event *
 umidi20_event_queue_search(struct umidi20_event_queue *queue, 
-			   u_int32_t position, u_int8_t cache_no);
+			   uint32_t position, uint8_t cache_no);
 extern void
 umidi20_event_queue_copy(struct umidi20_event_queue *src, 
 			 struct umidi20_event_queue *dst,
-			 u_int32_t pos_a, u_int32_t pos_b,
-			 u_int16_t rev_a, u_int16_t rev_b,
-			 u_int8_t cache_no, u_int8_t flag);
+			 uint32_t pos_a, uint32_t pos_b,
+			 uint16_t rev_a, uint16_t rev_b,
+			 uint8_t cache_no, uint8_t flag);
 extern void
 umidi20_event_queue_move(struct umidi20_event_queue *src, 
 			 struct umidi20_event_queue *dst,
-			 u_int32_t pos_a, u_int32_t pos_b,  
-			 u_int16_t rev_a, u_int16_t rev_b,
-			 u_int8_t cache_no);
+			 uint32_t pos_a, uint32_t pos_b,  
+			 uint16_t rev_a, uint16_t rev_b,
+			 uint8_t cache_no);
 extern void
 umidi20_event_queue_insert(struct umidi20_event_queue *dst, 
 			   struct umidi20_event *event_n, 
-			   u_int8_t cache_no);
+			   uint8_t cache_no);
 extern void
 umidi20_event_queue_drain(struct umidi20_event_queue *src);
 
-extern u_int8_t
-umidi20_convert_to_command(struct umidi20_converter *conv, u_int8_t b);
+extern uint8_t
+umidi20_convert_to_command(struct umidi20_converter *conv, uint8_t b);
 
 struct umidi20_event *
 umidi20_convert_to_event(struct umidi20_converter *conv, 
-			 u_int8_t b, u_int8_t flag);
+			 uint8_t b, uint8_t flag);
 void
 umidi20_convert_reset(struct umidi20_converter *conv);
 
 extern const
-u_int8_t umidi20_command_to_len[16];
+uint8_t umidi20_command_to_len[16];
 
 extern void
 umidi20_gettime(struct timespec *ts);
 
-extern u_int32_t
+extern uint32_t
 umidi20_difftime(struct timespec *a, struct timespec *b);
 
 extern int
 umidi20_mutex_init(pthread_mutex_t *pmutex);
 
 extern void
-umidi20_start(u_int32_t start_position, 
-	      u_int32_t end_position, u_int8_t flag);
+umidi20_start(uint32_t start_position, 
+	      uint32_t end_position, uint8_t flag);
 
 extern void
-umidi20_stop(u_int8_t flag);
+umidi20_stop(uint8_t flag);
 
 struct umidi20_song *
-umidi20_song_alloc(pthread_mutex_t *p_mtx, u_int16_t file_format, u_int16_t resolution, 
-		   u_int8_t div_type);
+umidi20_song_alloc(pthread_mutex_t *p_mtx, uint16_t file_format, uint16_t resolution, 
+		   uint8_t div_type);
 extern void
 umidi20_song_free(struct umidi20_song *song);
 
 extern struct umidi20_track *
-umidi20_song_track_by_unit(struct umidi20_song *song, u_int16_t unit);
+umidi20_song_track_by_unit(struct umidi20_song *song, uint16_t unit);
 
 extern void
 umidi20_song_set_record_track(struct umidi20_song *song, struct umidi20_track *track);
 
 extern void
-umidi20_song_start(struct umidi20_song *song, u_int32_t start_offset, 
-		   u_int32_t end_offset, u_int8_t flags);
+umidi20_song_start(struct umidi20_song *song, uint32_t start_offset, 
+		   uint32_t end_offset, uint8_t flags);
 extern void
-umidi20_song_stop(struct umidi20_song *song, u_int8_t flags);
+umidi20_song_stop(struct umidi20_song *song, uint8_t flags);
 
-extern u_int8_t
-umidi20_all_dev_off(u_int8_t flag);
+extern uint8_t
+umidi20_all_dev_off(uint8_t flag);
 
 extern void
 umidi20_song_track_add(struct umidi20_song *song, 
 		       struct umidi20_track *track_ref,
 		       struct umidi20_track *track_new,
-		       u_int8_t is_before_ref);
+		       uint8_t is_before_ref);
 extern void
 umidi20_song_track_remove(struct umidi20_song *song, 
 			  struct umidi20_track *track);
@@ -603,20 +607,200 @@ umidi20_track_compute_max_min(struct umidi20_track *track);
 extern struct umidi20_song *
 umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename);
 
-extern u_int8_t
+extern uint8_t
 umidi20_save_file(struct umidi20_song *song, const char* filename);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_assert.c"
  *--------------------------------------------------------------------------*/
-extern void
-__pthread_mutex_assert(pthread_mutex_t *p_mtx, u_int32_t flags, 
-		       const char *file, const char *func, u_int32_t line);
-#define MA_NOTOWNED 1
-#define MA_OWNED 2
-#define pthread_mutex_assert(mtx, flags) \
-    __pthread_mutex_assert(mtx, flags, __FILE__, __FUNCTION__, __LINE__);
-
+#define pthread_mutex_assert(mtx, flags) do { } while (0)
 #define DEBUG(...) 
 
+/*--------------------------------------------------------------------------*
+ * MIDI generator code
+ *--------------------------------------------------------------------------*/
+#define	C0 0
+#define	D0B 1
+#define	D0 2
+#define	E0B 3
+#define	E0 4
+#define	F0 5
+#define	G0B 6
+#define	G0 7
+#define	A0B 8
+#define	A0 9
+#define	H0B 10
+#define	H0 11
+
+#define	C1 12
+#define	D1B 13
+#define	D1 14
+#define	E1B 15
+#define	E1 16
+#define	F1 17
+#define	G1B 18
+#define	G1 19
+#define	A1B 20
+#define	A1 21
+#define	H1B 22
+#define	H1 23
+
+#define	C2 24
+#define	D2B 25
+#define	D2 26
+#define	E2B 27
+#define	E2 28
+#define	F2 29
+#define	G2B 30
+#define	G2 31
+#define	A2B 32
+#define	A2 33
+#define	H2B 34
+#define	H2 35
+
+#define	C3 36
+#define	D3B 37
+#define	D3 38
+#define	E3B 39
+#define	E3 40
+#define	F3 41
+#define	G3B 42
+#define	G3 43
+#define	A3B 44
+#define	A3 45
+#define	H3B 46
+#define	H3 47
+
+#define	C4 48
+#define	D4B 49
+#define	D4 50
+#define	E4B 51
+#define	E4 52
+#define	F4 53
+#define	G4B 54
+#define	G4 55
+#define	A4B 56
+#define	A4 57
+#define	H4B 58
+#define	H4 59
+
+#define	C5 60
+#define	D5B 61
+#define	D5 62
+#define	E5B 63
+#define	E5 64
+#define	F5 65
+#define	G5B 66
+#define	G5 67
+#define	A5B 68
+#define	A5 69
+#define	H5B 70
+#define	H5 71
+
+#define	C6 72
+#define	D6B 73
+#define	D6 74
+#define	E6B 75
+#define	E6 76
+#define	F6 77
+#define	G6B 78
+#define	G6 79
+#define	A6B 80
+#define	A6 81
+#define	H6B 82
+#define	H6 83
+
+#define	C7 84
+#define	D7B 85
+#define	D7 86
+#define	E7B 87
+#define	E7 88
+#define	F7 89
+#define	G7B 90
+#define	G7 91
+#define	A7B 92
+#define	A7 93
+#define	H7B 94
+#define	H7 95
+
+#define	C8 96
+#define	D8B 97
+#define	D8 98
+#define	E8B 99
+#define	E8 100
+#define	F8 101
+#define	G8B 102
+#define	G8 103
+#define	A8B 104
+#define	A8 105
+#define	H8B 106
+#define	H8 107
+
+#define	C9 108
+#define	D9B 109
+#define	D9 110
+#define	E9B 111
+#define	E9 112
+#define	F9 113
+#define	G9B 114
+#define	G9 115
+#define	A9B 116
+#define	A9 117
+#define	H9B 118
+#define	H9 119
+
+#define	C10 120
+#define	D10B 121
+#define	D10 122
+#define	E10B 123
+#define	E10 124
+#define	F10 125
+#define	G10B 126
+#define	G10 127
+
+/* Definition of channel numbers */
+
+#define TRACK_R 0	/* recording track */
+#define	TRACK_A 1
+#define TRACK_B 2
+#define TRACK_C 3
+#define TRACK_D 4
+#define	TRACK_E 5
+#define TRACK_F 6
+#define TRACK_G 7
+#define TRACK_H 8
+#define TRACK_P 9	/* percussion */
+
+struct mid_data {
+	struct umidi20_track *track;	/* track we are generating */
+	uint32_t position[16];	/* track position */
+	uint32_t priv[16];	/* client counters */
+	uint8_t channel;	/* currently selected MIDI channel */
+};
+
+extern const char *mid_key_str[128];
+void mid_sort(uint8_t *pk, uint8_t nk);
+void mid_trans(uint8_t *pk, uint8_t nk, int8_t nt);
+uint8_t mid_add(uint8_t a, uint8_t b);
+uint8_t mid_sub(uint8_t a, uint8_t b);
+uint8_t mid_next_key(uint8_t a, int8_t n);
+void mid_dump(struct mid_data *d);
+void mid_add_raw(struct mid_data *d, const uint8_t *buf,	    uint32_t len, uint32_t offset);
+uint32_t mid_get_position(struct mid_data *d);
+void mid_set_position(struct mid_data *d, uint32_t pos);
+uint32_t mid_delay(struct mid_data *d, int32_t off);
+void mid_position_ceil(struct mid_data *d, uint16_t channel_mask);
+void mid_position_floor(struct mid_data *d, uint16_t channel_mask);
+void mid_delay_all(struct mid_data *d, int32_t off);
+void mid_key_press(struct mid_data *d, uint8_t key, uint8_t vel, uint32_t duration);
+void mid_key_press_n(struct mid_data *d, const uint8_t *pkey, uint8_t nkey, uint8_t vel, uint32_t duration);
+void mid_set_channel(struct mid_data *d, uint8_t channel);
+uint8_t mid_get_channel(struct mid_data *d);
+void mid_pedal(struct mid_data *d, uint8_t on);
+void mid_s_pedal(struct mid_data *d, int32_t db, int32_t dm, int32_t da, 	    uint8_t on);
+void mid_init(struct mid_data *d, struct umidi20_track *track);
+void mid_set_bank_program(struct mid_data *d, uint8_t channel, uint16_t bank, 		     uint8_t prog);
+
 __END_DECLS
+
+#endif /* _UMIDI20_H_ */

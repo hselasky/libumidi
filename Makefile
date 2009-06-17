@@ -1,15 +1,16 @@
 #
 # $FreeBSD: $
 #
-# Makefile for shared CAPI access library
+# Makefile for MIDI library
 #
 
 LIB=		umidi20
 SHLIB_MAJOR=	2
 SHLIB_MINOR=	0
-CFLAGS+=	-Wall 
+CFLAGS+=	-Wall -O2 -O3
 
-SRCS=		umidi20.c umidi20.h umidi20_file.c umidi20_assert.c
+SRCS=		umidi20.c umidi20_file.c umidi20_assert.c umidi20_gen.c
+INCS=		umidi20.h
 
 MKLINT=		no
 

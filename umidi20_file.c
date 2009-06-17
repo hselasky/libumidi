@@ -38,50 +38,50 @@
  * Helpers
  */
 
-static u_int16_t
-interpret_uint16(u_int8_t *buffer)
+static uint16_t
+interpret_uint16(uint8_t *buffer)
 {
-	return ((u_int16_t)(buffer[0]) << 8) | (u_int16_t)(buffer[1]);
+	return ((uint16_t)(buffer[0]) << 8) | (uint16_t)(buffer[1]);
 }
 
-static u_int16_t
+static uint16_t
 read_uint16(FILE *in)
 {
-	u_int8_t buffer[2];
+	uint8_t buffer[2];
 	fread(buffer, 1, 2, in);
 	return interpret_uint16(buffer);
 }
 
 static void
-write_uint16(FILE *out, u_int16_t value)
+write_uint16(FILE *out, uint16_t value)
 {
-	u_int8_t buffer[2];
+	uint8_t buffer[2];
 	buffer[0] = (value >> 8) & 0xFF;
 	buffer[1] = (value & 0xFF);
 	fwrite(buffer, 1, 2, out);
 }
 
-static u_int32_t
-interpret_uint32(u_int8_t *buffer)
+static uint32_t
+interpret_uint32(uint8_t *buffer)
 {
-	return (((u_int32_t)(buffer[0]) << 24) | 
-		((u_int32_t)(buffer[1]) << 16) | 
-		((u_int32_t)(buffer[2]) << 8) | 
-		(u_int32_t)(buffer[3]));
+	return (((uint32_t)(buffer[0]) << 24) | 
+		((uint32_t)(buffer[1]) << 16) | 
+		((uint32_t)(buffer[2]) << 8) | 
+		(uint32_t)(buffer[3]));
 }
 
-static u_int32_t
+static uint32_t
 read_uint32(FILE *in)
 {
-	u_int8_t buffer[4];
+	uint8_t buffer[4];
 	fread(buffer, 1, 4, in);
 	return interpret_uint32(buffer);
 }
 
 static void 
-write_uint32(FILE *out, u_int32_t value)
+write_uint32(FILE *out, uint32_t value)
 {
-	u_int8_t buffer[4];
+	uint8_t buffer[4];
 	buffer[0] = (value >> 24);
 	buffer[1] = (value >> 16) & 0xFF;
 	buffer[2] = (value >> 8) & 0xFF;
@@ -90,12 +90,12 @@ write_uint32(FILE *out, u_int32_t value)
 	return;
 }
 
-static u_int32_t
+static uint32_t
 read_variable_length_quantity(FILE *in)
 {
-	u_int8_t b;
-	u_int32_t value = 0;
-	u_int8_t to = 4;
+	uint8_t b;
+	uint32_t value = 0;
+	uint8_t to = 4;
 
 	do {
 	    if (!to--) {
@@ -110,10 +110,10 @@ read_variable_length_quantity(FILE *in)
 }
 
 static void
-write_variable_length_quantity(FILE *out, u_int32_t value)
+write_variable_length_quantity(FILE *out, uint32_t value)
 {
-	u_int8_t buffer[4];
-	u_int8_t offset = 3;
+	uint8_t buffer[4];
+	uint8_t offset = 3;
 
 	while (1) {
 	    buffer[offset] = value & 0x7F;
@@ -129,9 +129,9 @@ write_variable_length_quantity(FILE *out, u_int32_t value)
 
 static void
 write_event(struct umidi20_event *event, FILE *out, 
-	    u_int32_t offset, u_int32_t len)
+	    uint32_t offset, uint32_t len)
 {
-    u_int32_t part_len;
+    uint32_t part_len;
 
     while (offset > 0) {
         part_len = umidi20_command_to_len[event->cmd[0] & 0xF];
@@ -169,17 +169,17 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 	struct umidi20_track * track = NULL;
 	struct umidi20_event * event = NULL;
 	FILE *in = NULL;
-	u_int32_t chunk_size;
-	u_int32_t chunk_start;
-	u_int16_t number_of_tracks;
-	u_int16_t number_of_tracks_read = 0;
-	u_int16_t file_format;
-	u_int16_t resolution;
-	u_int8_t chunk_id[4];
-	u_int8_t division_type_and_resolution[4];
-	u_int8_t div_type;
-	u_int8_t temp[4];
-	u_int8_t flag = 0;
+	uint32_t chunk_size;
+	uint32_t chunk_start;
+	uint16_t number_of_tracks;
+	uint16_t number_of_tracks_read = 0;
+	uint16_t file_format;
+	uint16_t resolution;
+	uint8_t chunk_id[4];
+	uint8_t division_type_and_resolution[4];
+	uint8_t div_type;
+	uint8_t temp[4];
+	uint8_t flag = 0;
 
 	if ((filename == NULL) || 
 	    ((in = fopen(filename, "rb")) == NULL)) {
@@ -270,12 +270,12 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 
 	    if (memcmp(chunk_id, "MTrk", 4) == 0) {
 
-		u_int8_t *data_ptr;
-		u_int32_t data_len;
-	        u_int32_t tick = 0;
-		u_int8_t status;
-		u_int8_t running_status = 0;
-		u_int8_t at_end_of_track = 0;
+		uint8_t *data_ptr;
+		uint32_t data_len;
+	        uint32_t tick = 0;
+		uint8_t status;
+		uint8_t running_status = 0;
+		uint8_t at_end_of_track = 0;
 
 		track = umidi20_track_alloc();
 
@@ -283,7 +283,7 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 		    goto error;
 		}
 
-		while ((((u_int32_t)ftell(in)) < 
+		while ((((uint32_t)ftell(in)) < 
 			(chunk_start + chunk_size)) && 
 		       (!at_end_of_track)) {
 
@@ -436,19 +436,19 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 	return NULL;
 }
 
-u_int8_t
+uint8_t
 umidi20_save_file(struct umidi20_song *song, const char* filename)
 {
 	FILE *out = NULL;
 	struct umidi20_track *track;
 	struct umidi20_event *event;
 	struct umidi20_event *event_next;
-	u_int32_t track_size_offset;
-	u_int32_t track_start_offset;
-	u_int32_t track_end_offset;
-	u_int32_t tick;
-	u_int32_t previous_tick;
-	u_int32_t data_len;
+	uint32_t track_size_offset;
+	uint32_t track_start_offset;
+	uint32_t track_end_offset;
+	uint32_t tick;
+	uint32_t previous_tick;
+	uint32_t data_len;
 
 	if (song == NULL) {
 	    goto error;

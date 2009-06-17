@@ -29,32 +29,3 @@
 
 #include "umidi20.h"
 
-void
-__pthread_mutex_assert(pthread_mutex_t *p_mtx, u_int32_t flags, 
-		       const char *file, const char *func, u_int32_t line)
-{
-#if 0
-    /* this is not the right way to do it, but one can enable
-     * this code to have some kind of mutex assertion.
-     */
-    int locked = pthread_mutex_unlock(p_mtx);
-
-    if (locked == 0) {
-        pthread_mutex_lock(p_mtx);
-    }
-
-    locked = (locked == 0);
-
-    if(locked && (flags & MA_NOTOWNED)) {
-      printf("Mutex is owned at %s:%s:%d!\n",
-             file, func, line);
-    }
-
-    if((!locked) && (flags & MA_OWNED)) {
-      printf("Mutex is not owned at %s:%s:%d!\n",
-             file, func, line);
-    }
-#endif
-    return;
-}
-
