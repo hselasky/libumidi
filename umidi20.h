@@ -396,219 +396,77 @@ struct umidi20_song {
  * prototypes from "umidi20.c"
  *--------------------------------------------------------------------------*/
 
-extern void
-	umidi20_init(void);
-
-extern struct umidi20_event *
-	umidi20_event_alloc(struct umidi20_event ***ppp_next, uint8_t flag);
-
-extern void
-	umidi20_event_free(struct umidi20_event *event);
-
-extern struct umidi20_event *
-	umidi20_event_copy(struct umidi20_event *event, uint8_t flag);
-
-extern struct umidi20_event *
-umidi20_event_from_data(const uint8_t *data_ptr,
-    uint32_t data_len, uint8_t flag);
-extern uint32_t
-	umidi20_event_get_what(struct umidi20_event *event);
-
-extern uint8_t
-	umidi20_event_is_key_start(struct umidi20_event *event);
-
-extern uint8_t
-	umidi20_event_is_key_end(struct umidi20_event *event);
-
-extern uint8_t
-	umidi20_event_is_tempo(struct umidi20_event *event);
-
-extern uint8_t
-	umidi20_event_is_voice(struct umidi20_event *event);
-
-extern uint8_t
-	umidi20_event_is_sysex(struct umidi20_event *event);
-
-extern uint8_t
-	umidi20_event_get_channel(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_channel(struct umidi20_event *event, uint8_t c);
-
-extern uint8_t
-	umidi20_event_get_key(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_key(struct umidi20_event *event, uint8_t k);
-
-extern uint8_t
-	umidi20_event_get_velocity(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_velocity(struct umidi20_event *event, uint8_t v);
-
-extern uint8_t
-	umidi20_event_get_pressure(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_pressure(struct umidi20_event *event, uint8_t p);
-
-extern uint8_t
-	umidi20_event_get_control_address(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_control_address(struct umidi20_event *event, uint8_t a);
-
-extern uint8_t
-	umidi20_event_get_control_value(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_control_value(struct umidi20_event *event, uint8_t a);
-
-extern uint8_t
-	umidi20_event_get_program_number(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_program_number(struct umidi20_event *event, uint8_t n);
-
-extern uint16_t
-	umidi20_event_get_pitch_value(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_pitch_value(struct umidi20_event *event, uint16_t n);
-
-extern uint32_t
-	umidi20_event_get_length_first(struct umidi20_event *event);
-
-extern uint32_t
-	umidi20_event_get_length(struct umidi20_event *event);
-
-extern void
-umidi20_event_copy_out(struct umidi20_event *event, uint8_t *dst,
-    uint32_t offset, uint32_t len);
-extern uint8_t
-	umidi20_event_get_meta_number(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_meta_number(struct umidi20_event *event, uint8_t n);
-
-extern uint32_t
-	umidi20_event_get_tempo(struct umidi20_event *event);
-
-extern void
-	umidi20_event_set_tempo(struct umidi20_event *event, uint32_t tempo);
-
-extern struct umidi20_event *
-umidi20_event_queue_search(struct umidi20_event_queue *queue,
-    uint32_t position, uint8_t cache_no);
-extern void
-umidi20_event_queue_copy(struct umidi20_event_queue *src,
-    struct umidi20_event_queue *dst,
-    uint32_t pos_a, uint32_t pos_b,
-    uint16_t rev_a, uint16_t rev_b,
-    uint8_t cache_no, uint8_t flag);
-extern void
-umidi20_event_queue_move(struct umidi20_event_queue *src,
-    struct umidi20_event_queue *dst,
-    uint32_t pos_a, uint32_t pos_b,
-    uint16_t rev_a, uint16_t rev_b,
-    uint8_t cache_no);
-extern void
-umidi20_event_queue_insert(struct umidi20_event_queue *dst,
-    struct umidi20_event *event_n,
-    uint8_t cache_no);
-extern void
-	umidi20_event_queue_drain(struct umidi20_event_queue *src);
-
-extern uint8_t
-	umidi20_convert_to_command(struct umidi20_converter *conv, uint8_t b);
-
-struct umidi20_event *
-umidi20_convert_to_event(struct umidi20_converter *conv,
-    uint8_t b, uint8_t flag);
-void
-	umidi20_convert_reset(struct umidi20_converter *conv);
-
-extern const
-uint8_t	umidi20_command_to_len[16];
-
-extern void
-	umidi20_gettime(struct timespec *ts);
-
-extern uint32_t
-	umidi20_difftime(struct timespec *a, struct timespec *b);
-
-extern int
-	umidi20_mutex_init(pthread_mutex_t *pmutex);
-
-extern void
-umidi20_start(uint32_t start_position,
-    uint32_t end_position, uint8_t flag);
-
-extern void
-	umidi20_stop(uint8_t flag);
-
-struct umidi20_song *
-umidi20_song_alloc(pthread_mutex_t *p_mtx, uint16_t file_format, uint16_t resolution,
-    uint8_t div_type);
-extern void
-	umidi20_song_free(struct umidi20_song *song);
-
-extern struct umidi20_track *
-	umidi20_song_track_by_unit(struct umidi20_song *song, uint16_t unit);
-
-extern void
-	umidi20_song_set_record_track(struct umidi20_song *song, struct umidi20_track *track);
-
-extern void
-umidi20_song_start(struct umidi20_song *song, uint32_t start_offset,
-    uint32_t end_offset, uint8_t flags);
-extern void
-	umidi20_song_stop(struct umidi20_song *song, uint8_t flags);
-
-extern uint8_t
-	umidi20_all_dev_off(uint8_t flag);
-
-extern void
-umidi20_song_track_add(struct umidi20_song *song,
-    struct umidi20_track *track_ref,
-    struct umidi20_track *track_new,
-    uint8_t is_before_ref);
-extern void
-umidi20_song_track_remove(struct umidi20_song *song,
-    struct umidi20_track *track);
-extern void
-	umidi20_song_recompute_position(struct umidi20_song *song);
-
-extern void
-	umidi20_song_recompute_tick(struct umidi20_song *song);
-
-extern void
-	umidi20_song_compute_max_min(struct umidi20_song *song);
-
-extern void
-	umidi20_config_export(struct umidi20_config *cfg);
-
-extern void
-	umidi20_config_import(struct umidi20_config *cfg);
-
-extern struct umidi20_track *
-	umidi20_track_alloc(void);
-
-extern void
-	umidi20_track_free(struct umidi20_track *track);
-
-extern void
-	umidi20_track_compute_max_min(struct umidi20_track *track);
+extern void umidi20_init(void);
+extern struct umidi20_event *umidi20_event_alloc(struct umidi20_event ***ppp_next, uint8_t flag);
+extern void umidi20_event_free(struct umidi20_event *event);
+extern struct umidi20_event *umidi20_event_copy(struct umidi20_event *event, uint8_t flag);
+extern struct umidi20_event *umidi20_event_from_data(const uint8_t *data_ptr, uint32_t data_len, uint8_t flag);
+extern uint32_t umidi20_event_get_what(struct umidi20_event *event);
+extern uint8_t umidi20_event_is_key_start(struct umidi20_event *event);
+extern uint8_t umidi20_event_is_key_end(struct umidi20_event *event);
+extern uint8_t umidi20_event_is_tempo(struct umidi20_event *event);
+extern uint8_t umidi20_event_is_voice(struct umidi20_event *event);
+extern uint8_t umidi20_event_is_sysex(struct umidi20_event *event);
+extern uint8_t umidi20_event_get_channel(struct umidi20_event *event);
+extern void umidi20_event_set_channel(struct umidi20_event *event, uint8_t c);
+extern uint8_t umidi20_event_get_key(struct umidi20_event *event);
+extern void umidi20_event_set_key(struct umidi20_event *event, uint8_t k);
+extern uint8_t umidi20_event_get_velocity(struct umidi20_event *event);
+extern void umidi20_event_set_velocity(struct umidi20_event *event, uint8_t v);
+extern uint8_t umidi20_event_get_pressure(struct umidi20_event *event);
+extern void umidi20_event_set_pressure(struct umidi20_event *event, uint8_t p);
+extern uint8_t umidi20_event_get_control_address(struct umidi20_event *event);
+extern void umidi20_event_set_control_address(struct umidi20_event *event, uint8_t a);
+extern uint8_t umidi20_event_get_control_value(struct umidi20_event *event);
+extern void umidi20_event_set_control_value(struct umidi20_event *event, uint8_t a);
+extern uint8_t umidi20_event_get_program_number(struct umidi20_event *event);
+extern void umidi20_event_set_program_number(struct umidi20_event *event, uint8_t n);
+extern uint16_t umidi20_event_get_pitch_value(struct umidi20_event *event);
+extern void umidi20_event_set_pitch_value(struct umidi20_event *event, uint16_t n);
+extern uint32_t umidi20_event_get_length_first(struct umidi20_event *event);
+extern uint32_t umidi20_event_get_length(struct umidi20_event *event);
+extern void umidi20_event_copy_out(struct umidi20_event *event, uint8_t *dst, uint32_t offset, uint32_t len);
+extern uint8_t umidi20_event_get_meta_number(struct umidi20_event *event);
+extern void umidi20_event_set_meta_number(struct umidi20_event *event, uint8_t n);
+extern uint32_t umidi20_event_get_tempo(struct umidi20_event *event);
+extern void umidi20_event_set_tempo(struct umidi20_event *event, uint32_t tempo);
+extern struct umidi20_event *umidi20_event_queue_search(struct umidi20_event_queue *queue, uint32_t position, uint8_t cache_no);
+extern void umidi20_event_queue_copy(struct umidi20_event_queue *src, struct umidi20_event_queue *dst, uint32_t pos_a, uint32_t pos_b, uint16_t rev_a, uint16_t rev_b, uint8_t cache_no, uint8_t flag);
+extern void umidi20_event_queue_move(struct umidi20_event_queue *src, struct umidi20_event_queue *dst, uint32_t pos_a, uint32_t pos_b, uint16_t rev_a, uint16_t rev_b, uint8_t cache_no);
+extern void umidi20_event_queue_insert(struct umidi20_event_queue *dst, struct umidi20_event *event_n, uint8_t cache_no);
+extern void umidi20_event_queue_drain(struct umidi20_event_queue *src);
+extern uint8_t umidi20_convert_to_command(struct umidi20_converter *conv, uint8_t b);
+struct umidi20_event *umidi20_convert_to_event(struct umidi20_converter *conv, uint8_t b, uint8_t flag);
+void	umidi20_convert_reset(struct umidi20_converter *conv);
+extern const uint8_t umidi20_command_to_len[16];
+extern void umidi20_gettime(struct timespec *ts);
+extern uint32_t umidi20_difftime(struct timespec *a, struct timespec *b);
+extern int umidi20_mutex_init(pthread_mutex_t *pmutex);
+extern void umidi20_start(uint32_t start_position, uint32_t end_position, uint8_t flag);
+extern void umidi20_stop(uint8_t flag);
+struct umidi20_song *umidi20_song_alloc(pthread_mutex_t *p_mtx, uint16_t file_format, uint16_t resolution, uint8_t div_type);
+extern void umidi20_song_free(struct umidi20_song *song);
+extern struct umidi20_track *umidi20_song_track_by_unit(struct umidi20_song *song, uint16_t unit);
+extern void umidi20_song_set_record_track(struct umidi20_song *song, struct umidi20_track *track);
+extern void umidi20_song_start(struct umidi20_song *song, uint32_t start_offset, uint32_t end_offset, uint8_t flags);
+extern void umidi20_song_stop(struct umidi20_song *song, uint8_t flags);
+extern uint8_t umidi20_all_dev_off(uint8_t flag);
+extern void umidi20_song_track_add(struct umidi20_song *song, struct umidi20_track *track_ref, struct umidi20_track *track_new, uint8_t is_before_ref);
+extern void umidi20_song_track_remove(struct umidi20_song *song, struct umidi20_track *track);
+extern void umidi20_song_recompute_position(struct umidi20_song *song);
+extern void umidi20_song_recompute_tick(struct umidi20_song *song);
+extern void umidi20_song_compute_max_min(struct umidi20_song *song);
+extern void umidi20_config_export(struct umidi20_config *cfg);
+extern void umidi20_config_import(struct umidi20_config *cfg);
+extern struct umidi20_track *umidi20_track_alloc(void);
+extern void umidi20_track_free(struct umidi20_track *track);
+extern void umidi20_track_compute_max_min(struct umidi20_track *track);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_file.c"
  *--------------------------------------------------------------------------*/
-extern struct umidi20_song *
-	umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename);
-
-extern uint8_t
-	umidi20_save_file(struct umidi20_song *song, const char *filename);
+extern struct umidi20_song *umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename);
+extern uint8_t umidi20_save_file(struct umidi20_song *song, const char *filename);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_assert.c"
