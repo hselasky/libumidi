@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2009 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,21 +60,23 @@ struct umidi20_root_device root_dev;
 /* functions */
 
 void
-umidi20_set_record_event_callback(uint8_t device_no, umidi20_event_callback_t *func)
+umidi20_set_record_event_callback(uint8_t device_no, umidi20_event_callback_t *func, void *arg)
 {
 	if (device_no >= UMIDI20_N_DEVICES)
 		return;
 
-	root_dev.rec[device_no].event_callback = func;
+	root_dev.rec[device_no].event_callback_func = func;
+	root_dev.rec[device_no].event_callback_arg = arg;
 }
 
 void
-umidi20_set_play_event_callback(uint8_t device_no, umidi20_event_callback_t *func)
+umidi20_set_play_event_callback(uint8_t device_no, umidi20_event_callback_t *func, void *arg)
 {
 	if (device_no >= UMIDI20_N_DEVICES)
 		return;
 
-	root_dev.play[device_no].event_callback = func;
+	root_dev.play[device_no].event_callback_func = func;
+	root_dev.play[device_no].event_callback_arg = arg;
 }
 
 void
@@ -281,9 +283,10 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 		event->device_no = dev->device_no;
 		event->position = curr_position;
 
-		if (dev->event_callback != NULL)
-			(dev->event_callback) (dev->device_no, event);
-
+		if (dev->event_callback_func != NULL) {
+			(dev->event_callback_func) (dev->device_no,
+			    dev->event_callback_arg, event);
+		}
 		if (play_dev->enabled_usr) {
 			if (effect & UMIDI20_EFFECT_LOOPBACK) {
 				event_copy = umidi20_event_copy(event, 1);
@@ -333,9 +336,10 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 		if (delta_position >= 0x80000000) {
 
-			if (dev->event_callback != NULL)
-				(dev->event_callback) (dev->device_no, event);
-
+			if (dev->event_callback_func != NULL) {
+				(dev->event_callback_func) (dev->device_no,
+				    dev->event_callback_arg, event);
+			}
 			if ((dev->file_no >= 0) &&
 			    (dev->enabled_usr) &&
 			    (event->cmd[1] != 0xFF)) {
