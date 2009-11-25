@@ -41,39 +41,41 @@
 
 /* prototypes */
 
-static void
-	umidi20_uninit(void);
+static void umidi20_uninit(void);
+static void *umidi20_watchdog_alloc(void *arg);
 
-static void *
-	umidi20_watchdog_alloc(void *arg);
+static void *umidi20_watchdog_play_rec(void *arg);
 
-static void *
-	umidi20_watchdog_play_rec(void *arg);
-
-static void
-umidi20_watchdog_record_sub(struct umidi20_device *dev,
-    struct umidi20_device *play_dev,
-    uint32_t position, uint32_t effects);
-static void
-umidi20_watchdog_play_sub(struct umidi20_device *dev,
-    uint32_t position);
-static void
-umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev,
-    struct umidi20_event *event);
-static void *
-	umidi20_watchdog_files(void *arg);
-
-static void
-	umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *mtx);
-
-static void *
-	umidi20_watchdog_song(void *arg);
+static void umidi20_watchdog_record_sub(struct umidi20_device *dev, struct umidi20_device *play_dev, uint32_t position, uint32_t effects);
+static void umidi20_watchdog_play_sub(struct umidi20_device *dev, uint32_t position);
+static void umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev, struct umidi20_event *event);
+static void *umidi20_watchdog_files(void *arg);
+static void umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *mtx);
+static void *umidi20_watchdog_song(void *arg);
 
 /* structures */
 
 struct umidi20_root_device root_dev;
 
 /* functions */
+
+void
+umidi20_set_record_event_callback(uint8_t device_no, umidi20_event_callback_t *func)
+{
+	if (device_no >= UMIDI20_N_DEVICES)
+		return;
+
+	root_dev.rec[device_no].event_callback = func;
+}
+
+void
+umidi20_set_play_event_callback(uint8_t device_no, umidi20_event_callback_t *func)
+{
+	if (device_no >= UMIDI20_N_DEVICES)
+		return;
+
+	root_dev.play[device_no].event_callback = func;
+}
 
 void
 umidi20_init(void)
@@ -279,6 +281,9 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 		event->device_no = dev->device_no;
 		event->position = curr_position;
 
+		if (dev->event_callback != NULL)
+			(dev->event_callback) (dev->device_no, event);
+
 		if (play_dev->enabled_usr) {
 			if (effect & UMIDI20_EFFECT_LOOPBACK) {
 				event_copy = umidi20_event_copy(event, 1);
@@ -328,6 +333,9 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 		if (delta_position >= 0x80000000) {
 
+			if (dev->event_callback != NULL)
+				(dev->event_callback) (dev->device_no, event);
+
 			if ((dev->file_no >= 0) &&
 			    (dev->enabled_usr) &&
 			    (event->cmd[1] != 0xFF)) {
@@ -335,7 +343,6 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 				/* only write non-meta/reset commands */
 
 				do {
-
 					len = umidi20_command_to_len[event->cmd[0] & 0xF];
 
 					/* check key */

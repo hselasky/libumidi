@@ -79,6 +79,8 @@ struct umidi20_event;
 struct umidi20_track;
 struct umidi20_song;
 
+typedef void (umidi20_event_callback_t)(uint8_t unit, struct umidi20_event *event);
+
 /*--------------------------------------------------------------------------*
  * queue structures and macros
  *--------------------------------------------------------------------------*/
@@ -294,6 +296,8 @@ struct umidi20_device {
 	struct umidi20_event_queue queue;
 	struct umidi20_converter conv;
 
+	umidi20_event_callback_t *event_callback;
+
 	uint32_t start_position;
 	uint32_t end_offset;
 
@@ -396,6 +400,8 @@ struct umidi20_song {
  * prototypes from "umidi20.c"
  *--------------------------------------------------------------------------*/
 
+extern void umidi20_set_record_event_callback(uint8_t device_no, umidi20_event_callback_t *func);
+extern void umidi20_set_play_event_callback(uint8_t device_no, umidi20_event_callback_t *func);
 extern void umidi20_init(void);
 extern struct umidi20_event *umidi20_event_alloc(struct umidi20_event ***ppp_next, uint8_t flag);
 extern void umidi20_event_free(struct umidi20_event *event);
