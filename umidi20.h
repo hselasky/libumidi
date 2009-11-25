@@ -641,9 +641,12 @@ struct mid_data {
 	uint32_t position[16];		/* track position */
 	uint32_t priv[16];		/* client counters */
 	uint8_t	channel;		/* currently selected MIDI channel */
+	uint8_t	cc_enabled;		/* carbon copy enabled */
+	uint8_t	cc_device_no;		/* carbon copy device number */
 };
 
 extern const char *mid_key_str[128];
+void	mid_set_device_no(struct mid_data *d, uint8_t device_no);
 void	mid_sort(uint8_t *pk, uint8_t nk);
 void	mid_trans(uint8_t *pk, uint8_t nk, int8_t nt);
 uint8_t	mid_add(uint8_t a, uint8_t b);

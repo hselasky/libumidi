@@ -138,6 +138,20 @@ const char *mid_key_str[128] = {
 };
 
 void
+mid_set_device_no(struct mid_data *d, uint8_t device_no)
+{
+	uint8_t enable;
+
+	if (device_no >= UMIDI20_N_DEVICES)
+		enable = 0;
+	else
+		enable = 1;
+
+	d->cc_enabled = enable;
+	d->cc_device_no = device_no;
+}
+
+void
 mid_sort(uint8_t *pk, uint8_t nk)
 {
 	uint8_t a;
@@ -273,8 +287,15 @@ mid_add_raw(struct mid_data *d, const uint8_t *buf,
 	if (event) {
 		event->position = d->position[d->channel] + offset;
 		event->cmd[1] |= (d->channel & 0xF);
-		umidi20_event_queue_insert(&d->track->queue,
-		    event, UMIDI20_CACHE_INPUT);
+
+		if (d->cc_enabled) {
+			umidi20_event_queue_insert(&(root_dev.play[d->cc_device_no].queue),
+			    event, UMIDI20_CACHE_INPUT);
+		} else {
+			umidi20_event_queue_insert(&d->track->queue,
+			    event, UMIDI20_CACHE_INPUT);
+		}
+
 	} else {
 		printf("Lost event: Out of memory\n");
 	}
