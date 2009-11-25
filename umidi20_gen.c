@@ -366,7 +366,9 @@ mid_key_press(struct mid_data *d, uint8_t key, uint8_t vel, uint32_t duration)
 	buf1[2] = 0;			/* key off */
 
 	mid_add_raw(d, buf0, 3, 0);
-	mid_add_raw(d, buf1, 3, duration);
+
+	if (duration != 0)
+		mid_add_raw(d, buf1, 3, duration);
 }
 
 void
