@@ -59,6 +59,12 @@ struct umidi20_root_device root_dev;
 
 /* functions */
 
+uint32_t
+umidi20_get_curr_position(void)
+{
+	return (root_dev.curr_position);
+}
+
 void
 umidi20_set_record_event_callback(uint8_t device_no, umidi20_event_callback_t *func, void *arg)
 {

@@ -401,6 +401,7 @@ struct umidi20_song {
  * prototypes from "umidi20.c"
  *--------------------------------------------------------------------------*/
 
+extern uint32_t umidi20_get_curr_position(void);
 extern void umidi20_set_record_event_callback(uint8_t device_no, umidi20_event_callback_t *func, void *arg);
 extern void umidi20_set_play_event_callback(uint8_t device_no, umidi20_event_callback_t *func, void *arg);
 extern void umidi20_init(void);
