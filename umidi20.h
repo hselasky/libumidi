@@ -79,7 +79,7 @@ struct umidi20_event;
 struct umidi20_track;
 struct umidi20_song;
 
-typedef void (umidi20_event_callback_t)(uint8_t unit, void *arg, struct umidi20_event *event);
+typedef void (umidi20_event_callback_t)(uint8_t unit, void *arg, struct umidi20_event *event, uint8_t *drop_event);
 
 /*--------------------------------------------------------------------------*
  * queue structures and macros

@@ -251,6 +251,7 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 	struct umidi20_event *event;
 	struct umidi20_event *event_copy;
 	uint8_t cmd;
+	uint8_t drop;
 
 	curr_position -= dev->start_position;
 
@@ -289,9 +290,11 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 		event->device_no = dev->device_no;
 		event->position = curr_position;
 
+		drop = 0;
+
 		if (dev->event_callback_func != NULL) {
 			(dev->event_callback_func) (dev->device_no,
-			    dev->event_callback_arg, event);
+			    dev->event_callback_arg, event, &drop);
 		}
 		if (play_dev->enabled_usr) {
 			if (effect & UMIDI20_EFFECT_LOOPBACK) {
@@ -302,8 +305,12 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 				}
 			}
 		}
-		umidi20_event_queue_insert
-		    (&(dev->queue), event, UMIDI20_CACHE_INPUT);
+		if (drop) {
+			umidi20_event_free(event);
+		} else {
+			umidi20_event_queue_insert
+			    (&(dev->queue), event, UMIDI20_CACHE_INPUT);
+		}
 	}
 	return;
 }
@@ -315,8 +322,8 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 	struct umidi20_event *event;
 	struct umidi20_event *event_root;
 	uint32_t delta_position;
-
 	uint8_t len;
+	uint8_t drop;
 
 	/* playback */
 
@@ -342,13 +349,16 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 		if (delta_position >= 0x80000000) {
 
+			drop = 0;
+
 			if (dev->event_callback_func != NULL) {
 				(dev->event_callback_func) (dev->device_no,
-				    dev->event_callback_arg, event);
+				    dev->event_callback_arg, event, &drop);
 			}
 			if ((dev->file_no >= 0) &&
 			    (dev->enabled_usr) &&
-			    (event->cmd[1] != 0xFF)) {
+			    (event->cmd[1] != 0xFF) &&
+			    (!drop)) {
 
 				/* only write non-meta/reset commands */
 
