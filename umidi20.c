@@ -62,7 +62,13 @@ struct umidi20_root_device root_dev;
 uint32_t
 umidi20_get_curr_position(void)
 {
-	return (root_dev.curr_position);
+	uint32_t position;
+
+	pthread_mutex_lock(&(root_dev.mutex));
+	position = root_dev.curr_position;
+	pthread_mutex_unlock(&(root_dev.mutex));
+
+	return (position);
 }
 
 void
@@ -293,8 +299,13 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 		drop = 0;
 
 		if (dev->event_callback_func != NULL) {
+
+			pthread_mutex_unlock(&(root_dev.mutex));
+
 			(dev->event_callback_func) (dev->device_no,
 			    dev->event_callback_arg, event, &drop);
+
+			pthread_mutex_lock(&(root_dev.mutex));
 		}
 		if (play_dev->enabled_usr) {
 			if (effect & UMIDI20_EFFECT_LOOPBACK) {
@@ -352,8 +363,13 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 			drop = 0;
 
 			if (dev->event_callback_func != NULL) {
+
+				pthread_mutex_unlock(&(root_dev.mutex));
+
 				(dev->event_callback_func) (dev->device_no,
 				    dev->event_callback_arg, event, &drop);
+
+				pthread_mutex_lock(&(root_dev.mutex));
 			}
 			if ((dev->file_no >= 0) &&
 			    (dev->enabled_usr) &&
