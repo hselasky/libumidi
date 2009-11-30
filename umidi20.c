@@ -551,6 +551,7 @@ umidi20_event_copy(struct umidi20_event *event, uint8_t flag)
 		p_curr->position = event->position;
 		p_curr->revision = event->revision;
 		p_curr->tick = event->tick;
+		p_curr->device_no = event->device_no;
 		bcopy(event->cmd, p_curr->cmd, UMIDI20_COMMAND_LEN);
 
 		/* get next event */
@@ -1470,13 +1471,21 @@ umidi20_device_stop(struct umidi20_device *dev)
 	 * XXX turn off all active keys
 	 */
 	if (dev->file_no >= 0) {
-		for (y = 0; y < (16 * 128); y++) {
+		/* turn any notes off */
+		for (y = 0; y != (16 * 128); y++) {
 			if (dev->key_on_table[y / 8] & (1 << (y % 8))) {
 				buf[0] = (0x90 | (y / 128));
 				buf[1] = (y % 128);
 				buf[2] = (0);
 				write(dev->file_no, buf, 3);
 			}
+		}
+		/* turn pedal off */
+		for (y = 0; y != 16; y++) {
+			buf[0] = 0xB0 | y;
+			buf[1] = 0x40;
+			buf[2] = 0;
+			write(dev->file_no, buf, 3);
 		}
 	}
 	bzero(dev->key_on_table, sizeof(dev->key_on_table));
