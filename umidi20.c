@@ -448,7 +448,7 @@ umidi20_watchdog_files(void *arg)
 					close(file_no);
 				}
 				if (dev->enabled_cfg)
-					file_no = open(dev->fname, O_WRONLY);
+					file_no = open(dev->fname, O_WRONLY | O_NONBLOCK);
 				else
 					file_no = -1;
 
@@ -468,7 +468,7 @@ umidi20_watchdog_files(void *arg)
 					close(file_no);
 				}
 				if (dev->enabled_cfg)
-					file_no = open(dev->fname, O_RDONLY);
+					file_no = open(dev->fname, O_RDONLY | O_NONBLOCK);
 				else
 					file_no = -1;
 
