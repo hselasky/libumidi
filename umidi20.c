@@ -333,6 +333,7 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 	struct umidi20_event *event;
 	struct umidi20_event *event_root;
 	uint32_t delta_position;
+	int err;
 	uint8_t len;
 	uint8_t drop;
 
@@ -385,8 +386,16 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 					umidi20_watchdog_play_sub_check_key(dev, event);
 
-					if (write(dev->file_no, event->cmd + 1, len) != len) {
+					/* try to write data */
+
+					err = write(dev->file_no, event->cmd + 1, len);
+					if ((err < 0) && (errno != EWOULDBLOCK)) {
+						/* try to re-open the device */
 						dev->update = 1;
+						break;
+					} else if (err != len) {
+						/* we are done - the queue is full */
+						break;
 					}
 				} while ((event = event->p_next));
 			}
@@ -1471,6 +1480,7 @@ umidi20_device_stop(struct umidi20_device *dev)
 	 * XXX turn off all active keys
 	 */
 	if (dev->file_no >= 0) {
+
 		/* turn any notes off */
 		for (y = 0; y != (16 * 128); y++) {
 			if (dev->key_on_table[y / 8] & (1 << (y % 8))) {
@@ -1480,6 +1490,7 @@ umidi20_device_stop(struct umidi20_device *dev)
 				write(dev->file_no, buf, 3);
 			}
 		}
+
 		/* turn pedal off */
 		for (y = 0; y != 16; y++) {
 			buf[0] = 0xB0 | y;
