@@ -28,6 +28,7 @@
 
 #include <sys/cdefs.h>
 #include <sys/param.h>
+#include <sys/queue.h>
 
 #include <pthread.h>
 #include <signal.h>
@@ -78,8 +79,10 @@ struct timespec;
 struct umidi20_event;
 struct umidi20_track;
 struct umidi20_song;
+struct umidi20_timer_entry;
 
 typedef void (umidi20_event_callback_t)(uint8_t unit, void *arg, struct umidi20_event *event, uint8_t *drop_event);
+typedef void (umidi20_timer_callback_t)(void *arg);
 
 /*--------------------------------------------------------------------------*
  * queue structures and macros
@@ -325,6 +328,8 @@ struct umidi20_root_device {
 	struct timespec start_time;
 	pthread_mutex_t mutex;
 
+	TAILQ_HEAD(, umidi20_timer_entry) timers;
+
 	pthread_t thread_alloc;
 	pthread_t thread_play_rec;
 	pthread_t thread_files;
@@ -469,6 +474,8 @@ extern void umidi20_config_import(struct umidi20_config *cfg);
 extern struct umidi20_track *umidi20_track_alloc(void);
 extern void umidi20_track_free(struct umidi20_track *track);
 extern void umidi20_track_compute_max_min(struct umidi20_track *track);
+extern void umidi20_set_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval);
+extern void umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_file.c"

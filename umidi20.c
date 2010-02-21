@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006-2009 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2010 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,10 +52,20 @@ static void umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev, stru
 static void *umidi20_watchdog_files(void *arg);
 static void umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *mtx);
 static void *umidi20_watchdog_song(void *arg);
+static void umidi20_exec_timer(uint32_t pos);
 
 /* structures */
 
 struct umidi20_root_device root_dev;
+
+struct umidi20_timer_entry {
+	TAILQ_ENTRY(umidi20_timer_entry) entry;
+	umidi20_timer_callback_t *fn;
+	void   *arg;
+	uint32_t ms_interval;
+	uint32_t timeout_pos;
+	uint8_t	pending;
+};
 
 /* functions */
 
@@ -102,6 +112,8 @@ umidi20_init(void)
 
 	root_dev.start_time = root_dev.curr_time;
 	root_dev.curr_position = 0;
+
+	TAILQ_INIT(&root_dev.timers);
 
 	for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 		root_dev.rec[x].file_no = -1;
@@ -233,6 +245,8 @@ umidi20_watchdog_play_rec(void *arg)
 			    position, root_dev.effects);
 		}
 
+		umidi20_exec_timer(position);
+
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 			umidi20_watchdog_play_sub(&(root_dev.play[x]), position);
 		}
@@ -247,6 +261,114 @@ umidi20_watchdog_play_rec(void *arg)
 	pthread_mutex_unlock(&(root_dev.mutex));
 
 	return NULL;
+}
+
+static void
+umidi20_exec_timer(uint32_t pos)
+{
+	struct umidi20_timer_entry *entry;
+	int32_t delta;
+
+restart:
+
+	TAILQ_FOREACH(entry, &root_dev.timers, entry) {
+		delta = entry->timeout_pos - pos;
+		if ((delta < 0) || ((uint32_t)delta > entry->ms_interval)) {
+
+			/* check if next timeout is valid, else reset */
+
+			if (delta < -1000) {
+				/* reset */
+				entry->timeout_pos = pos + entry->ms_interval;
+			} else if (delta < 0) {
+
+				/* try to stay sync */
+				while (delta < 0) {
+					/* try to stay sync */
+					entry->timeout_pos += entry->ms_interval;
+					delta += entry->ms_interval;
+				}
+
+			} else if ((uint32_t)delta > entry->ms_interval) {
+				/* reset */
+				entry->timeout_pos = pos + entry->ms_interval;
+			}
+			entry->pending = 1;
+			pthread_mutex_unlock(&(root_dev.mutex));
+			(entry->fn) (entry->arg);
+			pthread_mutex_lock(&(root_dev.mutex));
+			entry->pending = 0;
+			goto restart;
+		}
+	}
+}
+
+void
+umidi20_set_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval)
+{
+	struct umidi20_timer_entry *entry;
+	struct umidi20_timer_entry *new_entry;
+
+	if (ms_interval == 0) {
+		umidi20_unset_timer(fn, arg);
+		return;
+	}
+
+	if (ms_interval > 65535)
+		ms_interval = 65535;
+
+	new_entry = malloc(sizeof(*new_entry));
+	if (new_entry == NULL)
+		return;
+
+	pthread_mutex_lock(&(root_dev.mutex));
+
+	TAILQ_FOREACH(entry, &root_dev.timers, entry) {
+		if ((entry->fn == fn) && (entry->arg == arg)) {
+			break;
+		}
+	}
+
+	if (entry != NULL) {
+		/* first timeout ASAP */
+		entry->ms_interval = ms_interval;
+		entry->timeout_pos = root_dev.curr_position;
+
+		pthread_mutex_unlock(&(root_dev.mutex));
+		free(new_entry);
+		return;
+	}
+	new_entry->fn = fn;
+	new_entry->arg = arg;
+	new_entry->ms_interval = ms_interval;
+	new_entry->timeout_pos = root_dev.curr_position + ms_interval;
+	new_entry->pending = 0;
+
+	TAILQ_INSERT_TAIL(&root_dev.timers, new_entry, entry);
+
+	pthread_mutex_unlock(&(root_dev.mutex));
+}
+
+void
+umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg)
+{
+	struct umidi20_timer_entry *entry;
+
+	pthread_mutex_lock(&(root_dev.mutex));
+	TAILQ_FOREACH(entry, &root_dev.timers, entry) {
+		if ((entry->fn == fn) && (entry->arg == arg)) {
+			TAILQ_REMOVE(&root_dev.timers, entry, entry);
+			while (entry->pending != 0) {
+				pthread_mutex_unlock(&(root_dev.mutex));
+				pthread_yield();
+				pthread_mutex_lock(&(root_dev.mutex));
+			}
+			pthread_mutex_unlock(&(root_dev.mutex));
+			free(entry);
+			return;
+		}
+	}
+	pthread_mutex_unlock(&(root_dev.mutex));
 }
 
 static void
@@ -394,7 +516,10 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 						dev->update = 1;
 						break;
 					} else if (err != len) {
-						/* we are done - the queue is full */
+						/*
+						 * we are done - the queue
+						 * is full
+						 */
 						break;
 					}
 				} while ((event = event->p_next));
