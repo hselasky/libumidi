@@ -16,6 +16,7 @@ INCS=		umidi20.h
 MKLINT=		no
 
 NOGCCERROR=
+NO_PROFILE=
 
 MAN=	# no manual pages at the moment
 
