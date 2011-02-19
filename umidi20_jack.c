@@ -572,12 +572,12 @@ umidi20_jack_init(const char *name)
 		puj->write_fd[0] = -1;
 		puj->write_fd[1] = -1;
 
-		snprintf(devname, sizeof(devname), "%s.TX", name);
+		snprintf(devname, sizeof(devname), "%s.%d.TX", name, (int)n);
 
 		puj->output_port = jack_port_register(umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
 		    JackPortIsOutput, 0);
 
-		snprintf(devname, sizeof(devname), "%s.RX", name);
+		snprintf(devname, sizeof(devname), "%s.%d.RX", name, (int)n);
 
 		puj->input_port = jack_port_register(umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
 		    JackPortIsInput, 0);
