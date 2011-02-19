@@ -427,7 +427,7 @@ umidi20_jack_rx_open(uint8_t n, const char *name)
 		return (-1);
 
 	/* connect */
-	error = jack_connect(umidi20_jack_client, jack_port_name(puj->input_port), name);
+	error = jack_connect(umidi20_jack_client, name, jack_port_name(puj->input_port));
 	if (error)
 		return (-1);
 
@@ -438,7 +438,6 @@ umidi20_jack_rx_open(uint8_t n, const char *name)
 		puj->write_fd[0] = -1;
 		puj->write_fd[1] = -1;
 	}
-	memset(&puj->parse, 0, sizeof(puj->parse));
 	umidi20_jack_unlock();
 
 	if (error) {
@@ -484,7 +483,7 @@ umidi20_jack_tx_open(uint8_t n, const char *name)
 		puj->read_fd[0] = -1;
 		puj->read_fd[1] = -1;
 	} else {
-		fcntl(puj->read_fd[1], F_SETFL, (int)O_NONBLOCK);
+		fcntl(puj->read_fd[0], F_SETFL, (int)O_NONBLOCK);
 		memset(&puj->parse, 0, sizeof(puj->parse));
 	}
 	umidi20_jack_unlock();
@@ -546,7 +545,7 @@ umidi20_jack_init(const char *name)
 	struct umidi20_jack *puj;
 	uint8_t n;
 	int error;
-	char devname[128];
+	char devname[64];
 
 	if (name == NULL)
 		return (-1);
@@ -572,12 +571,12 @@ umidi20_jack_init(const char *name)
 		puj->write_fd[0] = -1;
 		puj->write_fd[1] = -1;
 
-		snprintf(devname, sizeof(devname), "%s.%d.TX", name, (int)n);
+		snprintf(devname, sizeof(devname), "dev%d.TX", (int)n);
 
 		puj->output_port = jack_port_register(umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
 		    JackPortIsOutput, 0);
 
-		snprintf(devname, sizeof(devname), "%s.%d.RX", name, (int)n);
+		snprintf(devname, sizeof(devname), "dev%d.RX", (int)n);
 
 		puj->input_port = jack_port_register(umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
 		    JackPortIsInput, 0);
