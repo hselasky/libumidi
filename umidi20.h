@@ -280,15 +280,13 @@ struct umidi20_config_dev {
 	char	play_fname[128];
 	uint8_t	rec_enabled_cfg;
 	uint8_t	play_enabled_cfg;
+#define	UMIDI20_DISABLE_CFG 0
+#define	UMIDI20_ENABLED_CFG_DEV 1
+#define	UMIDI20_ENABLED_CFG_JACK 2
 };
 
 struct umidi20_config {
 	struct umidi20_config_dev cfg_dev[UMIDI20_N_DEVICES];
-	uint32_t effects;
-#define	UMIDI20_EFFECT_LOOPBACK   0x0001
-#define	UMIDI20_EFFECT_KEYCOMPL_1 0x0002
-#define	UMIDI20_EFFECT_KEYCOMPL_2 0x0004
-#define	UMIDI20_EFFECT_KEYCOMPL_3 0x0008
 };
 
 /*--------------------------------------------------------------------------*
@@ -305,12 +303,13 @@ struct umidi20_device {
 	uint32_t start_position;
 	uint32_t end_offset;
 
-	int32_t	file_no;		/* I/O device */
+	int	file_no;		/* file number */
 
 	uint8_t	device_no;		/* device number */
 
 	uint8_t	enabled_usr;		/* enabled by user */
 	uint8_t	enabled_cfg;		/* enabled by config */
+	uint8_t	enabled_cfg_last;	/* last enabled by config */
 	uint8_t	update;
 	char	fname[128];
 
@@ -334,7 +333,6 @@ struct umidi20_root_device {
 	pthread_t thread_play_rec;
 	pthread_t thread_files;
 
-	uint32_t effects;
 	uint32_t curr_position;
 };
 
@@ -488,6 +486,17 @@ extern uint8_t umidi20_save_file(struct umidi20_song *song, const char *filename
  *--------------------------------------------------------------------------*/
 #define	pthread_mutex_assert(mtx, flags) do { } while (0)
 #define	DEBUG(...)
+
+/*--------------------------------------------------------------------------*
+ * prototypes from "umidi20_jack.c"
+ *--------------------------------------------------------------------------*/
+const char **umidi20_jack_alloc_inputs(void);
+const char **umidi20_jack_alloc_outputs(void);
+int umidi20_jack_rx_open(uint8_t n, const char *name);
+int umidi20_jack_tx_open(uint8_t n, const char *name);
+int umidi20_jack_rx_close(uint8_t n);
+int umidi20_jack_tx_close(uint8_t n);
+int umidi20_jack_init(const char *name);
 
 /*--------------------------------------------------------------------------*
  * MIDI generator code

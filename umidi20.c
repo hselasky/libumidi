@@ -27,8 +27,6 @@
 #include <sys/file.h>
 #include <sys/signal.h>
 #include <sys/time.h>
-#include <sys/ioctl.h>
-#include <sys/filio.h>
 
 #include <stdio.h>
 #include <time.h>
@@ -36,6 +34,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include "umidi20.h"
 
@@ -46,7 +45,7 @@ static void *umidi20_watchdog_alloc(void *arg);
 
 static void *umidi20_watchdog_play_rec(void *arg);
 
-static void umidi20_watchdog_record_sub(struct umidi20_device *dev, struct umidi20_device *play_dev, uint32_t position, uint32_t effects);
+static void umidi20_watchdog_record_sub(struct umidi20_device *dev, struct umidi20_device *play_dev, uint32_t position);
 static void umidi20_watchdog_play_sub(struct umidi20_device *dev, uint32_t position);
 static void umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev, struct umidi20_event *event);
 static void *umidi20_watchdog_files(void *arg);
@@ -182,9 +181,8 @@ umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *p_mtx)
 		pthread_kill(td, SIGURG);
 		pthread_join(td, NULL);
 
-		while (recurse--) {
+		while (recurse--)
 			pthread_mutex_lock(p_mtx);
-		}
 	}
 	return;
 }
@@ -242,7 +240,7 @@ umidi20_watchdog_play_rec(void *arg)
 
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 			umidi20_watchdog_record_sub(&(root_dev.rec[x]), &(root_dev.play[x]),
-			    position, root_dev.effects);
+			    position);
 		}
 
 		umidi20_exec_timer(position);
@@ -374,10 +372,9 @@ umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg)
 static void
 umidi20_watchdog_record_sub(struct umidi20_device *dev,
     struct umidi20_device *play_dev,
-    uint32_t curr_position, uint32_t effect)
+    uint32_t curr_position)
 {
 	struct umidi20_event *event;
-	struct umidi20_event *event_copy;
 	uint8_t cmd;
 	uint8_t drop;
 
@@ -428,15 +425,6 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 			    dev->event_callback_arg, event, &drop);
 
 			pthread_mutex_lock(&(root_dev.mutex));
-		}
-		if (play_dev->enabled_usr) {
-			if (effect & UMIDI20_EFFECT_LOOPBACK) {
-				event_copy = umidi20_event_copy(event, 1);
-				if (event_copy) {
-					umidi20_event_queue_insert
-					    (&(play_dev->queue), event_copy, UMIDI20_CACHE_INPUT);
-				}
-			}
 		}
 		if (drop) {
 			umidi20_event_free(event);
@@ -563,7 +551,6 @@ umidi20_watchdog_files(void *arg)
 	struct umidi20_device *dev;
 	uint32_t x;
 	int file_no;
-	int err;
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
@@ -579,16 +566,38 @@ umidi20_watchdog_files(void *arg)
 				dev->file_no = -1;
 
 				if (file_no > 2) {
-					close(file_no);
+					switch (dev->enabled_cfg_last) {
+					case UMIDI20_ENABLED_CFG_DEV:
+						close(file_no);
+						break;
+#ifdef HAVE_JACK
+					case UMIDI20_ENABLED_CFG_JACK:
+						umidi20_jack_tx_close(x);
+						break;
+#endif
+					default:
+						break;
+					}
 				}
-				if (dev->enabled_cfg)
+				switch (dev->enabled_cfg) {
+				case UMIDI20_ENABLED_CFG_DEV:
 					file_no = open(dev->fname, O_WRONLY | O_NONBLOCK);
-				else
+					break;
+#ifdef HAVE_JACK
+				case UMIDI20_ENABLED_CFG_JACK:
+					file_no = umidi20_jack_tx_open(x, dev->fname);
+					break;
+#endif
+				default:
 					file_no = -1;
-
+					break;
+				}
 				if (file_no >= 0) {
+					dev->enabled_cfg_last = dev->enabled_cfg;
 					dev->update = 0;
 					dev->file_no = file_no;
+				} else {
+					dev->enabled_cfg_last = UMIDI20_DISABLE_CFG;
 				}
 			}
 			dev = &(root_dev.rec[x]);
@@ -599,21 +608,42 @@ umidi20_watchdog_files(void *arg)
 				dev->file_no = -1;
 
 				if (file_no > 2) {
-					close(file_no);
+					switch (dev->enabled_cfg_last) {
+					case UMIDI20_ENABLED_CFG_DEV:
+						close(file_no);
+						break;
+#ifdef HAVE_JACK
+					case UMIDI20_ENABLED_CFG_JACK:
+						umidi20_jack_tx_close(x);
+						break;
+#endif
+					default:
+						break;
+					}
 				}
-				if (dev->enabled_cfg)
+				switch (dev->enabled_cfg) {
+				case UMIDI20_ENABLED_CFG_DEV:
 					file_no = open(dev->fname, O_RDONLY | O_NONBLOCK);
-				else
+					break;
+#ifdef HAVE_JACK
+				case UMIDI20_ENABLED_CFG_JACK:
+					file_no = umidi20_jack_rx_open(x, dev->fname);
+					break;
+#endif
+				default:
 					file_no = -1;
-
+					break;
+				}
 				if (file_no >= 0) {
 
 					/* set non-blocking I/O */
-					err = 1;
-					err = ioctl(file_no, FIONBIO, &err);
+					fcntl(file_no, F_SETFL, (int)O_NONBLOCK);
 
+					dev->enabled_cfg_last = dev->enabled_cfg;
 					dev->update = 0;
 					dev->file_no = file_no;
+				} else {
+					dev->enabled_cfg_last = UMIDI20_DISABLE_CFG;
 				}
 			}
 		}
@@ -2305,8 +2335,6 @@ umidi20_config_export(struct umidi20_config *cfg)
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
-	cfg->effects = root_dev.effects;
-
 	for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 
 		strlcpy(cfg->cfg_dev[x].rec_fname,
@@ -2334,8 +2362,6 @@ umidi20_config_import(struct umidi20_config *cfg)
 	uint32_t x;
 
 	pthread_mutex_lock(&(root_dev.mutex));
-
-	root_dev.effects = cfg->effects;
 
 	for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 
