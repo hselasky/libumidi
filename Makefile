@@ -55,6 +55,8 @@ SRCS+=		umidi20_jack.c
 LDADD+=		-L${PREFIX}/lib -ljack
 CFLAGS+=	-I${PREFIX}/include
 CFLAGS+=	-DHAVE_JACK
+.else
+SRCS+=		umidi20_jack_dummy.c
 .endif
 
 MKLINT=		no
