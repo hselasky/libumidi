@@ -578,7 +578,7 @@ umidi20_jack_init(const char *name)
 	pthread_mutex_init(&umidi20_jack_mtx, NULL);
 
 	umidi20_jack_client = jack_client_open(umidi20_jack_name,
-	    JackNullOption, NULL);
+	    JackNoStartServer, NULL);
 	if (umidi20_jack_client == NULL)
 		return (-1);
 
