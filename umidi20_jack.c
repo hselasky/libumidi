@@ -34,7 +34,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <signal.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <err.h>
@@ -539,6 +538,28 @@ umidi20_jack_tx_close(uint8_t n)
 	return (0);
 }
 
+static void
+umidi20_jack_shutdown(void *arg)
+{
+	struct umidi20_jack *puj;
+	int n;
+
+	umidi20_jack_lock();
+	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
+		puj = &umidi20_jack[n];
+		if (puj->read_fd[0] > -1) {
+			close(puj->read_fd[0]);
+			puj->read_fd[0] = -1;
+		}
+		if (puj->write_fd[1] > -1) {
+			close(puj->write_fd[1]);
+			puj->write_fd[1] = -1;
+		}
+	}
+	umidi20_jack_init_done = 0;
+	umidi20_jack_unlock();
+}
+
 int
 umidi20_jack_init(const char *name)
 {
@@ -556,13 +577,17 @@ umidi20_jack_init(const char *name)
 
 	pthread_mutex_init(&umidi20_jack_mtx, NULL);
 
-	umidi20_jack_client = jack_client_open(umidi20_jack_name, JackNullOption, NULL);
+	umidi20_jack_client = jack_client_open(umidi20_jack_name,
+	    JackNullOption, NULL);
 	if (umidi20_jack_client == NULL)
 		return (-1);
 
-	error = jack_set_process_callback(umidi20_jack_client, umidi20_process_callback, 0);
+	error = jack_set_process_callback(umidi20_jack_client,
+	    umidi20_process_callback, 0);
 	if (error)
 		return (-1);
+
+	jack_on_shutdown(umidi20_jack_client, umidi20_jack_shutdown, 0);
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 		puj = &umidi20_jack[n];
@@ -573,12 +598,14 @@ umidi20_jack_init(const char *name)
 
 		snprintf(devname, sizeof(devname), "dev%d.TX", (int)n);
 
-		puj->output_port = jack_port_register(umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
+		puj->output_port = jack_port_register(
+		    umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
 		    JackPortIsOutput, 0);
 
 		snprintf(devname, sizeof(devname), "dev%d.RX", (int)n);
 
-		puj->input_port = jack_port_register(umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
+		puj->input_port = jack_port_register(
+		    umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
 		    JackPortIsInput, 0);
 	}
 
