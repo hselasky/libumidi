@@ -105,6 +105,16 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 	if (puj->input_port == NULL)
 		return;
 
+	if (jack_port_connected(puj->input_port) < 1) {
+		int fd;
+		umidi20_jack_lock();
+		fd = puj->write_fd[1];
+		puj->write_fd[1] = -1;
+		umidi20_jack_unlock();
+		if (fd > -1)
+			close(fd);
+	}
+
 	buf = jack_port_get_buffer(puj->input_port, nframes);
 	if (buf == NULL) {
 		DPRINTF("jack_port_get_buffer() failed, cannot receive anything.\n");
@@ -302,9 +312,20 @@ umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 	if (puj->output_port == NULL)
 		return;
 
+	if (jack_port_connected(puj->output_port) < 1) {
+		int fd;
+		umidi20_jack_lock();
+		fd = puj->read_fd[0];
+		puj->read_fd[0] = -1;
+		umidi20_jack_unlock();
+		if (fd > -1)
+			close(fd);
+	}
+
 	buf = jack_port_get_buffer(puj->output_port, nframes);
 	if (buf == NULL) {
-		DPRINTF("jack_port_get_buffer() failed, cannot send anything.\n");
+		DPRINTF("jack_port_get_buffer() failed, cannot "
+		    "send anything.\n");
 		return;
 	}
 #ifdef JACK_MIDI_NEEDS_NFRAMES
@@ -370,7 +391,8 @@ umidi20_jack_alloc_inputs(void)
 	if (umidi20_jack_init_done == 0)
 		return (0);
 
-	ptr = jack_get_ports(umidi20_jack_client, NULL, JACK_DEFAULT_MIDI_TYPE, JackPortIsInput);
+	ptr = jack_get_ports(umidi20_jack_client, NULL,
+	    JACK_DEFAULT_MIDI_TYPE, JackPortIsInput);
 
 	if (ptr != NULL) {
 		for (n = 0; ptr[n] != NULL; n++) {
@@ -390,7 +412,8 @@ umidi20_jack_alloc_outputs(void)
 	if (umidi20_jack_init_done == 0)
 		return (0);
 
-	ptr = jack_get_ports(umidi20_jack_client, NULL, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput);
+	ptr = jack_get_ports(umidi20_jack_client, NULL,
+	    JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput);
 
 	if (ptr != NULL) {
 		for (n = 0; ptr[n] != NULL; n++) {
@@ -426,7 +449,8 @@ umidi20_jack_rx_open(uint8_t n, const char *name)
 		return (-1);
 
 	/* connect */
-	error = jack_connect(umidi20_jack_client, name, jack_port_name(puj->input_port));
+	error = jack_connect(umidi20_jack_client, name,
+	    jack_port_name(puj->input_port));
 	if (error)
 		return (-1);
 
@@ -471,7 +495,8 @@ umidi20_jack_tx_open(uint8_t n, const char *name)
 		return (-1);
 
 	/* connect */
-	error = jack_connect(umidi20_jack_client, jack_port_name(puj->output_port), name);
+	error = jack_connect(umidi20_jack_client,
+	    jack_port_name(puj->output_port), name);
 	if (error)
 		return (-1);
 
