@@ -674,7 +674,7 @@ umidi20_event_alloc(struct umidi20_event ***ppp_next, uint8_t flag)
 		event = malloc(sizeof(*event));
 	}
 	if (event) {
-		bzero(event, sizeof(*event));
+		memset(event, 0, sizeof(*event));
 		if (ppp_next) {
 			**ppp_next = event;
 			*ppp_next = &(event->p_next);
@@ -716,7 +716,7 @@ umidi20_event_copy(struct umidi20_event *event, uint8_t flag)
 		p_curr->revision = event->revision;
 		p_curr->tick = event->tick;
 		p_curr->device_no = event->device_no;
-		bcopy(event->cmd, p_curr->cmd, UMIDI20_COMMAND_LEN);
+		memcpy(p_curr->cmd, event->cmd, UMIDI20_COMMAND_LEN);
 
 		/* get next event */
 		event = event->p_next;
@@ -825,7 +825,7 @@ umidi20_event_is_key_start(struct umidi20_event *event)
 {
 	if (event == NULL)
 		return 0;
-	return (((event->cmd[1] & 0xF0) == 0x90) && event->cmd[3]);
+	return (((event->cmd[1] & 0xF0) == 0x90) && (event->cmd[3] != 0));
 }
 
 uint8_t
@@ -1546,8 +1546,7 @@ void
 umidi20_convert_reset(struct umidi20_converter *conv)
 {
 	umidi20_event_free(conv->p_next);
-	bzero(conv, sizeof(*conv));
-	return;
+	memset(conv, 0, sizeof(*conv));
 }
 
 const
@@ -1580,7 +1579,7 @@ void
 umidi20_gettime(struct timespec *ts)
 {
 	if (clock_gettime(CLOCK_MONOTONIC, ts) == -1) {
-		bzero(ts, sizeof(*ts));
+		memset(ts, 0, sizeof(*ts));
 	}
 	return;
 }
@@ -1622,40 +1621,37 @@ umidi20_device_start(struct umidi20_device *dev,
 }
 
 static void
-umidi20_device_stop(struct umidi20_device *dev)
+umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 {
 	uint32_t y;
-	uint8_t buf[3];
+	uint8_t buf[4];
 
 	dev->enabled_usr = 0;
 	umidi20_convert_reset(&(dev->conv));
 	umidi20_event_queue_drain(&(dev->queue));
 
-	/*
-	 * XXX turn off all active keys
-	 */
-	if (dev->file_no >= 0) {
+	if (play_fd < 0)
+		return;
 
-		/* turn any notes off */
-		for (y = 0; y != (16 * 128); y++) {
-			if (dev->key_on_table[y / 8] & (1 << (y % 8))) {
-				buf[0] = (0x90 | (y / 128));
-				buf[1] = (y % 128);
-				buf[2] = (0);
-				write(dev->file_no, buf, 3);
-			}
-		}
+	/* turn off all active keys */
 
-		/* turn pedal off */
-		for (y = 0; y != 16; y++) {
-			buf[0] = 0xB0 | y;
-			buf[1] = 0x40;
-			buf[2] = 0;
-			write(dev->file_no, buf, 3);
+	for (y = 0; y != (16 * 128); y++) {
+		if (dev->key_on_table[y / 8] & (1 << (y % 8))) {
+			buf[0] = (0x90 | (y / 128));
+			buf[1] = (y % 128);
+			buf[2] = (0);
+			write(play_fd, buf, 3);
 		}
 	}
-	bzero(dev->key_on_table, sizeof(dev->key_on_table));
-	return;
+
+	/* turn pedal off */
+	for (y = 0; y != 16; y++) {
+		buf[0] = 0xB0 | y;
+		buf[1] = 0x40;
+		buf[2] = 0;
+		write(play_fd, buf, 3);
+	}
+	memset(dev->key_on_table, 0, sizeof(dev->key_on_table));
 }
 
 static void
@@ -1765,18 +1761,19 @@ umidi20_stop(uint8_t flag)
 {
 	uint32_t x;
 
-	if (flag == 0) {
+	if (flag == 0)
 		return;
-	}
+
 	pthread_mutex_lock(&(root_dev.mutex));
 	if (flag & UMIDI20_FLAG_PLAY) {
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
-			umidi20_device_stop(&(root_dev.play[x]));
+			umidi20_device_stop(&(root_dev.play[x]),
+			    root_dev.play[x].file_no);
 		}
 	}
 	if (flag & UMIDI20_FLAG_RECORD) {
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
-			umidi20_device_stop(&(root_dev.rec[x]));
+			umidi20_device_stop(&(root_dev.rec[x]), -1);
 		}
 	}
 	pthread_mutex_unlock(&(root_dev.mutex));
@@ -1789,9 +1786,9 @@ umidi20_all_dev_off(uint8_t flag)
 	uint32_t x;
 	uint8_t retval = 1;
 
-	if (flag == 0) {
+	if (flag == 0)
 		goto done;
-	}
+
 	pthread_mutex_lock(&(root_dev.mutex));
 	if (flag & UMIDI20_FLAG_PLAY) {
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
@@ -1822,7 +1819,7 @@ umidi20_song_alloc(pthread_mutex_t *p_mtx, uint16_t file_format,
 
 	if (song) {
 
-		bzero(song, sizeof(*song));
+		memset(song, 0, sizeof(*song));
 
 		song->p_mtx = p_mtx;
 
@@ -1882,7 +1879,7 @@ umidi20_watchdog_song_sub(struct umidi20_song *song)
 
 	pthread_mutex_assert(song->p_mtx, MA_OWNED);
 
-	bzero(&queue, sizeof(queue));
+	memset(&queue, 0, sizeof(queue));
 
 	pthread_mutex_lock(&(root_dev.mutex));
 	curr_position = root_dev.curr_position;
@@ -2331,7 +2328,7 @@ umidi20_config_export(struct umidi20_config *cfg)
 {
 	uint32_t x;
 
-	bzero(cfg, sizeof(*cfg));
+	memset(cfg, 0, sizeof(*cfg));
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
@@ -2396,7 +2393,6 @@ umidi20_config_import(struct umidi20_config *cfg)
 		}
 	}
 	pthread_mutex_unlock(&(root_dev.mutex));
-	return;
 }
 
 struct umidi20_track *
@@ -2405,22 +2401,20 @@ umidi20_track_alloc(void)
 	struct umidi20_track *track;
 
 	track = malloc(sizeof(*track));
-	if (track) {
-		bzero(track, sizeof(*track));
-	}
-	return track;
+	if (track)
+		memset(track, 0, sizeof(*track));
+	return (track);
 }
 
 void
 umidi20_track_free(struct umidi20_track *track)
 {
-	if (track == NULL) {
+	if (track == NULL)
 		return;
-	}
+
 	umidi20_event_queue_drain(&(track->queue));
 
 	free(track);
-	return;
 }
 
 void
@@ -2435,7 +2429,7 @@ umidi20_track_compute_max_min(struct umidi20_track *track)
 	uint8_t is_off;
 	uint8_t meta_num;
 
-	bzero(&last_key_press, sizeof(last_key_press));
+	memset(&last_key_press, 0, sizeof(last_key_press));
 
 	track->key_max = 0x00;
 	track->key_min = 0xFF;
