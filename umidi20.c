@@ -47,7 +47,6 @@ static void *umidi20_watchdog_play_rec(void *arg);
 
 static void umidi20_watchdog_record_sub(struct umidi20_device *dev, struct umidi20_device *play_dev, uint32_t position);
 static void umidi20_watchdog_play_sub(struct umidi20_device *dev, uint32_t position);
-static void umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev, struct umidi20_event *event);
 static void *umidi20_watchdog_files(void *arg);
 static void umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *mtx);
 static void *umidi20_watchdog_song(void *arg);
@@ -492,10 +491,6 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 				do {
 					len = umidi20_command_to_len[event->cmd[0] & 0xF];
 
-					/* check key */
-
-					umidi20_watchdog_play_sub_check_key(dev, event);
-
 					/* try to write data */
 
 					err = write(dev->file_no, event->cmd + 1, len);
@@ -518,29 +513,6 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 		} else {
 			break;
 		}
-	}
-	return;
-}
-
-static void
-umidi20_watchdog_play_sub_check_key(struct umidi20_device *dev,
-    struct umidi20_event *event)
-{
-	uint32_t offset;
-
-	/* check for key start */
-
-	if (umidi20_event_is_key_start(event)) {
-		offset = ((128 * (umidi20_event_get_channel(event) & 0xF)) +
-		    (umidi20_event_get_key(event) & 0x7F));
-		dev->key_on_table[offset / 8] |= (1 << (offset % 8));
-	}
-	/* check for key end */
-
-	if (umidi20_event_is_key_end(event)) {
-		offset = ((128 * (umidi20_event_get_channel(event) & 0xF)) +
-		    (umidi20_event_get_key(event) & 0x7F));
-		dev->key_on_table[offset / 8] &= ~(1 << (offset % 8));
 	}
 	return;
 }
@@ -1633,15 +1605,13 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 	if (play_fd < 0)
 		return;
 
-	/* turn off all active keys */
-
-	for (y = 0; y != (16 * 128); y++) {
-		if (dev->key_on_table[y / 8] & (1 << (y % 8))) {
-			buf[0] = (0x90 | (y / 128));
-			buf[1] = (y % 128);
-			buf[2] = (0);
-			write(play_fd, buf, 3);
-		}
+	/* all sound off */
+	for (y = 0; y != 16; y++) {
+		buf[0] = 0xB0 | y;
+		buf[1] = 0x78;
+		buf[2] = 0;
+		while (write(play_fd, buf, 3) < 0 && errno == EWOULDBLOCK)
+			usleep(1000);
 	}
 
 	/* turn pedal off */
@@ -1649,9 +1619,9 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[0] = 0xB0 | y;
 		buf[1] = 0x40;
 		buf[2] = 0;
-		write(play_fd, buf, 3);
+		while (write(play_fd, buf, 3) < 0 && errno == EWOULDBLOCK)
+			usleep(1000);
 	}
-	memset(dev->key_on_table, 0, sizeof(dev->key_on_table));
 }
 
 static void

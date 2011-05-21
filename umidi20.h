@@ -312,8 +312,6 @@ struct umidi20_device {
 	uint8_t	enabled_cfg_last;	/* last enabled by config */
 	uint8_t	update;
 	char	fname[128];
-
-	uint8_t	key_on_table[((128 * 16) + 7) / 8];
 };
 
 /*--------------------------------------------------------------------------*
