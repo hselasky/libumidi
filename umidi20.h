@@ -307,6 +307,7 @@ struct umidi20_device {
 
 	uint8_t	device_no;		/* device number */
 
+	uint8_t any_key_start;		/* a key start was transmitted */
 	uint8_t	enabled_usr;		/* enabled by user */
 	uint8_t	enabled_cfg;		/* enabled by config */
 	uint8_t	enabled_cfg_last;	/* last enabled by config */

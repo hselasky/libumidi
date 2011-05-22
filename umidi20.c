@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006-2010 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2011 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -490,6 +490,9 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 				do {
 					len = umidi20_command_to_len[event->cmd[0] & 0xF];
+
+					if (umidi20_event_is_key_start(event))
+						dev->any_key_start = 1;
 
 					/* try to write data */
 
@@ -1604,6 +1607,12 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 
 	if (play_fd < 0)
 		return;
+
+	if (dev->any_key_start == 0)
+		return;
+
+	/* clear any key start */
+	dev->any_key_start = 0;
 
 	/* all sound off */
 	for (y = 0; y != 16; y++) {
