@@ -307,7 +307,7 @@ struct umidi20_device {
 
 	uint8_t	device_no;		/* device number */
 
-	uint8_t any_key_start;		/* a key start was transmitted */
+	uint8_t	any_key_start;		/* a key start was transmitted */
 	uint8_t	enabled_usr;		/* enabled by user */
 	uint8_t	enabled_cfg;		/* enabled by config */
 	uint8_t	enabled_cfg_last;	/* last enabled by config */
@@ -395,8 +395,6 @@ struct umidi20_song {
 	uint8_t	rec_enabled;
 
 	uint8_t	pc_flags;		/* play and record flags */
-
-	char	filename[MAXPATHLEN];
 };
 
 /*--------------------------------------------------------------------------*
@@ -477,25 +475,24 @@ extern void umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg);
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_file.c"
  *--------------------------------------------------------------------------*/
-extern struct umidi20_song *umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename);
-extern uint8_t umidi20_save_file(struct umidi20_song *song, const char *filename);
+extern struct umidi20_song *umidi20_load_file(pthread_mutex_t *p_mtx, const uint8_t *ptr, uint32_t len);
+extern uint8_t umidi20_save_file(struct umidi20_song *song, uint8_t **pptr, uint32_t *plen);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_assert.c"
  *--------------------------------------------------------------------------*/
 #define	pthread_mutex_assert(mtx, flags) do { } while (0)
-#define	DEBUG(...)
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_jack.c"
  *--------------------------------------------------------------------------*/
 const char **umidi20_jack_alloc_inputs(void);
 const char **umidi20_jack_alloc_outputs(void);
-int umidi20_jack_rx_open(uint8_t n, const char *name);
-int umidi20_jack_tx_open(uint8_t n, const char *name);
-int umidi20_jack_rx_close(uint8_t n);
-int umidi20_jack_tx_close(uint8_t n);
-int umidi20_jack_init(const char *name);
+int	umidi20_jack_rx_open(uint8_t n, const char *name);
+int	umidi20_jack_tx_open(uint8_t n, const char *name);
+int	umidi20_jack_rx_close(uint8_t n);
+int	umidi20_jack_tx_close(uint8_t n);
+int	umidi20_jack_init(const char *name);
 
 /*--------------------------------------------------------------------------*
  * MIDI generator code

@@ -38,6 +38,12 @@
 
 #include "umidi20.h"
 
+#ifdef HAVE_DEBUG
+#define	DPRINTF(fmt, ...) printf("%s:%d" fmt,## __VA_ARGS__)
+#else
+#define	DPRINTF(fmt, ...) do { } while (0)
+#endif
+
 /* prototypes */
 
 static void umidi20_uninit(void);
@@ -381,7 +387,7 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 	if (curr_position >= dev->end_offset) {
 		/* time overflow */
 		if (dev->enabled_usr) {
-			DEBUG("time overflow\n");
+			DPRINTF("time overflow\n");
 			dev->enabled_usr = 0;
 		}
 	}
@@ -408,7 +414,7 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 		if (event == NULL) {
 			break;
 		}
-		DEBUG("pos = %d\n", curr_position);
+		DPRINTF("pos = %d\n", curr_position);
 
 		event->device_no = dev->device_no;
 		event->position = curr_position;
@@ -452,7 +458,7 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 	if (curr_position >= dev->end_offset) {
 		/* time overflow */
 		if (dev->enabled_usr) {
-			DEBUG("time overflow\n");
+			DPRINTF("time overflow\n");
 			dev->enabled_usr = 0;
 		}
 		return;
@@ -2189,7 +2195,7 @@ umidi20_song_recompute_position(struct umidi20_song *song)
 			factor = (UMIDI20_BPM / 60);
 		}
 
-		DEBUG("divisor=%d\n", divisor);
+		DPRINTF("divisor=%d\n", divisor);
 
 		UMIDI20_QUEUE_FOREACH(event, &(track->queue)) {
 
@@ -2202,7 +2208,7 @@ umidi20_song_recompute_position(struct umidi20_song *song)
 			position_curr += (position_rem / divisor);
 			position_rem %= divisor;
 
-			DEBUG("%d / %d, pos = %d, tick = %d\n", delta_tick,
+			DPRINTF("%d / %d, pos = %d, tick = %d\n", delta_tick,
 			    divisor, position_curr, event->tick);
 
 			/* update position */

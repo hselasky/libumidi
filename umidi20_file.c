@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2003-2006 David G. Slomin. All rights reserved.
- * Copyright (c) 2006 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2011 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,18 +24,107 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-
-#include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "umidi20.h"
 
-#define	DEBUG(...)
+#ifdef HAVE_DEBUG
+#define	DPRINTF(fmt, ...) printf("%s:%d" fmt,## __VA_ARGS__)
+#else
+#define	DPRINTF(fmt, ...) do { } while (0)
+#endif
 
 /*
- * Helpers
+ * File helpers
+ */
+
+struct midi_file {
+	uint8_t *ptr;
+	uint32_t end;
+	uint32_t off;
+};
+
+static void
+midi_write_multi(struct midi_file *pmf, const void *ptr, uint32_t len)
+{
+	uint32_t rem;
+
+	rem = pmf->end - pmf->off;
+	if (len > rem)
+		len = rem;
+
+	if (pmf->ptr != NULL)
+		memcpy(pmf->ptr + pmf->off, ptr, len);
+
+	pmf->off += len;
+}
+
+static void
+midi_write_1(struct midi_file *pmf, uint8_t val)
+{
+	if (pmf->end == pmf->off)
+		return;
+
+	if (pmf->ptr != NULL)
+		((uint8_t *)pmf->ptr)[pmf->off] = val;
+
+	pmf->off += 1;
+}
+
+static void
+midi_read_multi(struct midi_file *pmf, void *ptr, uint32_t len)
+{
+	uint32_t rem;
+
+	rem = pmf->end - pmf->off;
+	if (len > rem) {
+		memset(ptr + rem, 0, len - rem);
+		len = rem;
+	}
+	memcpy(ptr, pmf->ptr + pmf->off, len);
+
+	pmf->off += len;
+}
+
+static uint8_t
+midi_read_1(struct midi_file *pmf)
+{
+	if (pmf->off == pmf->end)
+		return (0);
+
+	pmf->off += 1;
+
+	return (((uint8_t *)pmf->ptr)[pmf->off - 1]);
+}
+
+static uint8_t
+midi_read_peek_1(struct midi_file *pmf)
+{
+	if (pmf->off == pmf->end)
+		return (0);
+
+	return (((uint8_t *)pmf->ptr)[pmf->off]);
+}
+
+static void
+midi_seek_set(struct midi_file *pmf, uint32_t off)
+{
+	if (off > pmf->end)
+		off = pmf->end;
+
+	pmf->off = off;
+}
+
+static uint32_t
+midi_offset(struct midi_file *pmf)
+{
+	return (pmf->off);
+}
+
+/*
+ * MIDI helpers
  */
 
 static uint16_t
@@ -45,22 +134,23 @@ interpret_uint16(uint8_t *buffer)
 }
 
 static uint16_t
-read_uint16(FILE *in)
+read_uint16(struct midi_file *in)
 {
 	uint8_t buffer[2];
 
-	fread(buffer, 1, 2, in);
-	return interpret_uint16(buffer);
+	midi_read_multi(in, buffer, 2);
+
+	return (interpret_uint16(buffer));
 }
 
 static void
-write_uint16(FILE *out, uint16_t value)
+write_uint16(struct midi_file *out, uint16_t value)
 {
 	uint8_t buffer[2];
 
 	buffer[0] = (value >> 8) & 0xFF;
 	buffer[1] = (value & 0xFF);
-	fwrite(buffer, 1, 2, out);
+	midi_write_multi(out, buffer, 2);
 }
 
 static uint32_t
@@ -73,16 +163,17 @@ interpret_uint32(uint8_t *buffer)
 }
 
 static uint32_t
-read_uint32(FILE *in)
+read_uint32(struct midi_file *in)
 {
 	uint8_t buffer[4];
 
-	fread(buffer, 1, 4, in);
-	return interpret_uint32(buffer);
+	midi_read_multi(in, buffer, 4);
+
+	return (interpret_uint32(buffer));
 }
 
 static void
-write_uint32(FILE *out, uint32_t value)
+write_uint32(struct midi_file *out, uint32_t value)
 {
 	uint8_t buffer[4];
 
@@ -90,30 +181,31 @@ write_uint32(FILE *out, uint32_t value)
 	buffer[1] = (value >> 16) & 0xFF;
 	buffer[2] = (value >> 8) & 0xFF;
 	buffer[3] = (value & 0xFF);
-	fwrite(buffer, 1, 4, out);
-	return;
+	midi_write_multi(out, buffer, 4);
 }
 
 static uint32_t
-read_variable_length_quantity(FILE *in)
+read_variable_length_quantity(struct midi_file *in)
 {
-	uint8_t b;
 	uint32_t value = 0;
 	uint8_t to = 4;
+	uint8_t b;
 
 	do {
-		if (!to--) {
+		if (!to--)
 			break;
-		}
-		b = fgetc(in);
+
+		b = midi_read_1(in);
 		value <<= 7;
 		value |= (b & 0x7F);
+
 	} while (b & 0x80);
-	return value;
+
+	return (value);
 }
 
 static void
-write_variable_length_quantity(FILE *out, uint32_t value)
+write_variable_length_quantity(struct midi_file *out, uint32_t value)
 {
 	uint8_t buffer[4];
 	uint8_t offset = 3;
@@ -128,12 +220,11 @@ write_variable_length_quantity(FILE *out, uint32_t value)
 		offset--;
 	}
 
-	fwrite(buffer + offset, 1, 4 - offset, out);
-	return;
+	midi_write_multi(out, buffer + offset, 4 - offset);
 }
 
 static void
-write_event(struct umidi20_event *event, FILE *out,
+write_event(struct umidi20_event *event, struct midi_file *out,
     uint32_t offset, uint32_t len)
 {
 	uint32_t part_len;
@@ -156,22 +247,21 @@ write_event(struct umidi20_event *event, FILE *out,
 		if (part_len > len) {
 			part_len = len;
 		}
-		fwrite(event->cmd + 1 + offset, 1, part_len, out);
+		midi_write_multi(out, event->cmd + 1 + offset, part_len);
 
 		len -= part_len;
 		offset = 0;
 		event = event->p_next;
 	}
-	return;
 }
 
 struct umidi20_song *
-umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
+umidi20_load_file(pthread_mutex_t *p_mtx, const uint8_t *ptr, uint32_t len)
 {
+	struct midi_file in[1];
 	struct umidi20_song *song = NULL;
 	struct umidi20_track *track = NULL;
 	struct umidi20_event *event = NULL;
-	FILE *in = NULL;
 	uint32_t chunk_size;
 	uint32_t chunk_start;
 	uint16_t number_of_tracks;
@@ -184,13 +274,17 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 	uint8_t temp[4];
 	uint8_t flag = 0;
 
-	if ((filename == NULL) ||
-	    ((in = fopen(filename, "rb")) == NULL)) {
+	if (ptr == NULL || len == 0)
 		goto error;
-	}
-	fread(chunk_id, 1, 4, in);
+
+	/* init input file */
+	in[0].ptr = (uint8_t *)(long)ptr;
+	in[0].end = len;
+	in[0].off = 0;
+
+	midi_read_multi(in, chunk_id, 4);
 	chunk_size = read_uint32(in);
-	chunk_start = ftell(in);
+	chunk_start = midi_offset(in);
 
 	/* check for the RMID variation on SMF */
 
@@ -199,29 +293,31 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 		 * technically this one is a type id rather than a chunk id,
 		 * but we'll reuse the buffer anyway:
 		 */
-		fread(chunk_id, 1, 4, in);
+		midi_read_multi(in, chunk_id, 4);
 
-		if (memcmp(chunk_id, "RMID", 4) != 0) {
+		if (memcmp(chunk_id, "RMID", 4) != 0)
 			goto error;
-		}
-		fread(chunk_id, 1, 4, in);
+
+		midi_read_multi(in, chunk_id, 4);
+
 		chunk_size = read_uint32(in);
 
-		if (memcmp(chunk_id, "data", 4) != 0) {
+		if (memcmp(chunk_id, "data", 4) != 0)
 			goto error;
-		}
-		fread(chunk_id, 1, 4, in);
+
+		midi_read_multi(in, chunk_id, 4);
+
 		chunk_size = read_uint32(in);
-		chunk_start = ftell(in);
+		chunk_start = midi_offset(in);
 	}
-	if (memcmp(chunk_id, "MThd", 4) != 0) {
+	if (memcmp(chunk_id, "MThd", 4) != 0)
 		goto error;
-	}
+
 	file_format = read_uint16(in);
 
 	number_of_tracks = read_uint16(in);
 
-	fread(division_type_and_resolution, 1, 2, in);
+	midi_read_multi(in, division_type_and_resolution, 2);
 
 	switch ((int8_t)(division_type_and_resolution[0])) {
 	case -24:
@@ -248,21 +344,19 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 
 	song = umidi20_song_alloc(p_mtx, file_format, resolution, div_type);
 
-	if (song == NULL) {
+	if (song == NULL)
 		goto error;
-	}
-	strlcpy(song->filename, filename, sizeof(song->filename));
 
 	/* forwards compatibility:  skip over any extra header data */
-	fseek(in, chunk_start + chunk_size, SEEK_SET);
+	midi_seek_set(in, chunk_start + chunk_size);
 
 	while (number_of_tracks_read < number_of_tracks) {
 
-		fread(chunk_id, 1, 4, in);
+		midi_read_multi(in, chunk_id, 4);
 
 		chunk_size = read_uint32(in);
 
-		chunk_start = ftell(in);
+		chunk_start = midi_offset(in);
 
 		if (memcmp(chunk_id, "MTrk", 4) == 0) {
 
@@ -275,25 +369,23 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 
 			track = umidi20_track_alloc();
 
-			if (track == NULL) {
+			if (track == NULL)
 				goto error;
-			}
-			while ((((uint32_t)ftell(in)) <
+
+			while ((midi_offset(in) <
 			    (chunk_start + chunk_size)) &&
 			    (!at_end_of_track)) {
 
 				tick += read_variable_length_quantity(in);
 
-				status = fgetc(in);
+				status = midi_read_peek_1(in);
 
-				if (status & 0x80) {
-					running_status = status;
-				} else {
+				if (status & 0x80)
+					running_status = midi_read_1(in);
+				else
 					status = running_status;
-					fseek(in, -1, SEEK_CUR);
-				}
 
-				DEBUG("tick %u, status 0x%02x\n", tick, status);
+				DPRINTF("tick %u, status 0x%02x\n", tick, status);
 
 				temp[0] = status;
 
@@ -304,35 +396,33 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 				case 0xB:	/* control change */
 				case 0xE:	/* pitch wheel event */
 
-					temp[1] = fgetc(in) & 0x7F;
-					temp[2] = fgetc(in) & 0x7F;
+					temp[1] = midi_read_1(in) & 0x7F;
+					temp[2] = midi_read_1(in) & 0x7F;
 
 					event = umidi20_event_from_data(temp, 3, flag);
-					if (event == NULL) {
+					if (event == NULL)
 						goto error;
-					}
 					break;
 
 				case 0xC:	/* program change */
 				case 0xD:	/* channel pressure */
-					temp[1] = fgetc(in) & 0x7F;
+					temp[1] = midi_read_1(in) & 0x7F;
 
 					event = umidi20_event_from_data(temp, 2, flag);
-					if (event == NULL) {
+					if (event == NULL)
 						goto error;
-					}
 					break;
 
 				case 0xF:
 					switch (status) {
 					case 0xF1:	/* MIDI time code */
 					case 0xF3:	/* song select */
-						fgetc(in);
+						midi_read_1(in);
 						break;
 
 					case 0xF2:	/* song position pointer */
-						fgetc(in);
-						fgetc(in);
+						midi_read_1(in);
+						midi_read_1(in);
 						break;
 
 					case 0xF6:	/* tune request */
@@ -344,29 +434,28 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 						data_len = read_variable_length_quantity(in);
 						data_ptr = malloc(data_len + 2);
 
-						if (data_ptr == NULL) {
+						if (data_ptr == NULL)
 							goto error;
-						}
+
 						data_ptr[0] = 0xF0;
 						data_ptr[data_len + 1] = 0xF7;
-						fread(data_ptr + 1, 1, data_len, in);
+						midi_read_multi(in, data_ptr + 1, data_len);
 
 						event = umidi20_event_from_data(data_ptr, data_len + 2, flag);
 						free(data_ptr);
-						if (event == NULL) {
+						if (event == NULL)
 							goto error;
-						}
 						break;
 
 					case 0xFF:
-						temp[1] = fgetc(in) & 0x7F;
+						temp[1] = midi_read_1(in) & 0x7F;
 						data_len = read_variable_length_quantity(in);
 						data_ptr = malloc(data_len + 2);
 
-						if (data_ptr == NULL) {
+						if (data_ptr == NULL)
 							goto error;
-						}
-						fread(data_ptr + 2, 1, data_len, in);
+
+						midi_read_multi(in, data_ptr + 2, data_len);
 
 						data_ptr[0] = 0xFF;
 						data_ptr[1] = temp[1];
@@ -381,16 +470,16 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 							free(data_ptr);
 
 						} else if (temp[1] == 0x2F) {
-							//MidiFileTrack_setEndTick(track, tick);
+							/*
+							 * Set end tick
+							 */
 							at_end_of_track = 1;
 							free(data_ptr);
 						} else {
 							event = umidi20_event_from_data(data_ptr, data_len + 2, flag);
 							free(data_ptr);
-
-							if (event == NULL) {
+							if (event == NULL)
 								goto error;
-							}
 						}
 						break;
 					}
@@ -413,30 +502,22 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const char *filename)
 		 * forwards compatibility:  skip over any unrecognized
 		 * chunks, or extra data at the end of tracks:
 		 */
-		fseek(in, chunk_start + chunk_size, SEEK_SET);
+		midi_seek_set(in, chunk_start + chunk_size);
 	}
 
-	fclose(in);
-
 	umidi20_song_recompute_position(song);
-
-	return song;
+	return (song);
 
 error:
 	umidi20_song_free(song);
 	umidi20_track_free(track);
 	umidi20_event_free(event);
-
-	if (in) {
-		fclose(in);
-	}
-	return NULL;
+	return (NULL);
 }
 
-uint8_t
-umidi20_save_file(struct umidi20_song *song, const char *filename)
+static uint8_t
+umidi20_save_file_sub(struct umidi20_song *song, struct midi_file *out)
 {
-	FILE *out = NULL;
 	struct umidi20_track *track;
 	struct umidi20_event *event;
 	struct umidi20_event *event_next;
@@ -447,23 +528,14 @@ umidi20_save_file(struct umidi20_song *song, const char *filename)
 	uint32_t previous_tick;
 	uint32_t data_len;
 
-	if (song == NULL) {
+	if (song == NULL)
 		goto error;
-	}
-	if (filename == NULL) {
-		filename = song->filename;
-	}
-	if (filename[0] == '\0') {
-		goto error;
-	}
-	if ((out = fopen(filename, "wb")) == NULL) {
-		goto error;
-	}
+
 	pthread_mutex_assert(song->p_mtx, MA_OWNED);
 
 	umidi20_song_recompute_tick(song);
 
-	fwrite("MThd", 1, 4, out);
+	midi_write_multi(out, "MThd", 4);
 	write_uint32(out, 6);		/* header length */
 	write_uint16(out, song->midi_file_format);	/* file format */
 	write_uint16(out, song->queue.ifq_len);	/* number of tracks */
@@ -473,20 +545,20 @@ umidi20_save_file(struct umidi20_song *song, const char *filename)
 		write_uint16(out, song->midi_resolution);
 		break;
 	case UMIDI20_FILE_DIVISION_TYPE_SMPTE24:
-		fputc(-24, out);
-		fputc(song->midi_resolution, out);
+		midi_write_1(out, -24);
+		midi_write_1(out, song->midi_resolution);
 		break;
 	case UMIDI20_FILE_DIVISION_TYPE_SMPTE25:
-		fputc(-25, out);
-		fputc(song->midi_resolution, out);
+		midi_write_1(out, -25);
+		midi_write_1(out, song->midi_resolution);
 		break;
 	case UMIDI20_FILE_DIVISION_TYPE_SMPTE30DROP:
-		fputc(-29, out);
-		fputc(song->midi_resolution, out);
+		midi_write_1(out, -29);
+		midi_write_1(out, song->midi_resolution);
 		break;
 	case UMIDI20_FILE_DIVISION_TYPE_SMPTE30:
-		fputc(-30, out);
-		fputc(song->midi_resolution, out);
+		midi_write_1(out, -30);
+		midi_write_1(out, song->midi_resolution);
 		break;
 	default:
 		goto error;
@@ -494,12 +566,14 @@ umidi20_save_file(struct umidi20_song *song, const char *filename)
 
 	UMIDI20_QUEUE_FOREACH(track, &(song->queue)) {
 
-		fwrite("MTrk", 1, 4, out);
+		midi_write_multi(out, "MTrk", 4);
 
-		track_size_offset = ftell(out);
-		write_uint32(out, 0);	/* overwritten later */
+		track_size_offset = midi_offset(out);
 
-		track_start_offset = ftell(out);
+		/* this field is written later */
+		write_uint32(out, 0);
+
+		track_start_offset = midi_offset(out);
 
 		previous_tick = 0;
 
@@ -521,61 +595,87 @@ umidi20_save_file(struct umidi20_song *song, const char *filename)
 			case 0xA:	/* key pressure event */
 			case 0xB:	/* control change */
 			case 0xE:	/* pitch wheel event */
-				fputc(event->cmd[1], out);
-				fputc(event->cmd[2] & 0x7F, out);
-				fputc(event->cmd[3] & 0x7F, out);
+				midi_write_1(out, event->cmd[1]);
+				midi_write_1(out, event->cmd[2] & 0x7F);
+				midi_write_1(out, event->cmd[3] & 0x7F);
 				break;
 
 			case 0xC:	/* program change */
 			case 0xD:	/* channel pressure */
-				fputc(event->cmd[1], out);
-				fputc(event->cmd[2] & 0x7F, out);
+				midi_write_1(out, event->cmd[1]);
+				midi_write_1(out, event->cmd[2] & 0x7F);
 				break;
 
 			case 0xF:
 				switch (event->cmd[1]) {
 				case 0xF0:	/* System Exclusive Begin */
-					fputc(0xF0, out);
+					midi_write_1(out, 0xF0);
 					data_len = umidi20_event_get_length(event);
 					write_variable_length_quantity(out, data_len - 2);
 					write_event(event, out, 1, data_len - 2);
 					break;
 
 				case 0xFF:	/* Meta Event */
-					fputc(0xFF, out);
-					fputc(event->cmd[2] & 0x7F, out);
+					midi_write_1(out, 0xFF);
+					midi_write_1(out, event->cmd[2] & 0x7F);
 					data_len = umidi20_event_get_length(event);
 					write_variable_length_quantity(out, data_len - 1);
 					write_event(event, out, 1, data_len - 1);
 					break;
 				default:
-					fputc(0xFE, out);	/* dummy */
+					midi_write_1(out, 0xFE);	/* dummy */
 					break;
 				}
 				break;
 			default:
-				fputc(0xFE, out);	/* dummy */
+				midi_write_1(out, 0xFE);	/* dummy */
 				break;
 			}
 		}
 
 		write_variable_length_quantity(out, 0);
-		fwrite("\xFF\x2F\x00", 1, 3, out);
 
-		track_end_offset = ftell(out);
+		midi_write_multi(out, "\xFF\x2F\x00", 3);
 
-		fseek(out, track_size_offset, SEEK_SET);
+		track_end_offset = midi_offset(out);
+
+		midi_seek_set(out, track_size_offset);
+
 		write_uint32(out, track_end_offset - track_start_offset);
 
-		fseek(out, track_end_offset, SEEK_SET);
+		midi_seek_set(out, track_end_offset);
 	}
-
-	fclose(out);
-	return 0;
+	return (0);
 
 error:
-	if (out) {
-		fclose(out);
-	}
-	return 1;
+	return (1);
+}
+
+/* Must be called having the song locked. */
+uint8_t
+umidi20_save_file(struct umidi20_song *song, uint8_t **pptr, uint32_t *plen)
+{
+	struct midi_file out;
+	uint32_t len;
+
+	out.ptr = NULL;
+	out.end = -1U;
+	out.off = 0;
+
+	if (umidi20_save_file_sub(song, &out))
+		return (1);
+
+	len = out.off;
+
+	*pptr = out.ptr = malloc(len);
+	*plen = out.end = len;
+
+	if (out.ptr == NULL)
+		return (1);
+
+	out.off = 0;
+
+	umidi20_save_file_sub(song, &out);
+
+	return (0);
 }
