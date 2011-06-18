@@ -107,6 +107,7 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 
 	if (jack_port_connected(puj->input_port) < 1) {
 		int fd;
+
 		umidi20_jack_lock();
 		fd = puj->write_fd[1];
 		puj->write_fd[1] = -1;
@@ -114,7 +115,6 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 		if (fd > -1)
 			close(fd);
 	}
-
 	buf = jack_port_get_buffer(puj->input_port, nframes);
 	if (buf == NULL) {
 		DPRINTF("jack_port_get_buffer() failed, cannot receive anything.\n");
@@ -314,6 +314,7 @@ umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 
 	if (jack_port_connected(puj->output_port) < 1) {
 		int fd;
+
 		umidi20_jack_lock();
 		fd = puj->read_fd[0];
 		puj->read_fd[0] = -1;
@@ -321,7 +322,6 @@ umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 		if (fd > -1)
 			close(fd);
 	}
-
 	buf = jack_port_get_buffer(puj->output_port, nframes);
 	if (buf == NULL) {
 		DPRINTF("jack_port_get_buffer() failed, cannot "
