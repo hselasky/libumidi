@@ -310,7 +310,6 @@ umidi20_set_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval)
 		umidi20_unset_timer(fn, arg);
 		return;
 	}
-
 	if (ms_interval > 65535)
 		ms_interval = 65535;
 
