@@ -61,6 +61,7 @@ SRCS+=		umidi20_jack_dummy.c
 
 .if defined(HAVE_DEBUG)
 CFLAGS+=	-DHAVE_DEBUG
+CFLAGS+=	-g
 .endif
 
 MKLINT=		no
