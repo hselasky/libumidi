@@ -639,6 +639,15 @@ umidi20_jack_init(const char *name)
 	if (jack_activate(umidi20_jack_client))
 		return (-1);
 
+	/* cleanup any stale connections */
+	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
+		puj = &umidi20_jack[n];
+		if (puj->input_port != NULL)
+			jack_port_disconnect(umidi20_jack_client, puj->input_port);
+		if (puj->output_port != NULL)
+			jack_port_disconnect(umidi20_jack_client, puj->output_port);
+	}
+
 	umidi20_jack_init_done = 1;
 
 	return (0);
