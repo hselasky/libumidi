@@ -76,7 +76,8 @@ static int umidi20_jack_init_done;
 static const char *umidi20_jack_name;
 
 #ifdef HAVE_DEBUG
-#define	DPRINTF(fmt, ...) printf("%s:%d" fmt,## __VA_ARGS__)
+#define	DPRINTF(fmt, ...) \
+    printf("%s:%d" fmt, __FUNCTION__, __LINE__,## __VA_ARGS__)
 #else
 #define	DPRINTF(fmt, ...) do { } while (0)
 #endif
@@ -117,7 +118,8 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 	}
 	buf = jack_port_get_buffer(puj->input_port, nframes);
 	if (buf == NULL) {
-		DPRINTF("jack_port_get_buffer() failed, cannot receive anything.\n");
+		DPRINTF("jack_port_get_buffer() failed, "
+		    "cannot receive anything.\n");
 		return;
 	}
 #ifdef JACK_MIDI_NEEDS_NFRAMES

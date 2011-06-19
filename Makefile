@@ -59,6 +59,10 @@ CFLAGS+=	-DHAVE_JACK
 SRCS+=		umidi20_jack_dummy.c
 .endif
 
+.if defined(HAVE_DEBUG)
+CFLAGS+=	-DHAVE_DEBUG
+.endif
+
 MKLINT=		no
 
 NOGCCERROR=

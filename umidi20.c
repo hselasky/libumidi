@@ -39,7 +39,8 @@
 #include "umidi20.h"
 
 #ifdef HAVE_DEBUG
-#define	DPRINTF(fmt, ...) printf("%s:%d" fmt,## __VA_ARGS__)
+#define	DPRINTF(fmt, ...) \
+    printf("%s:%d" fmt, __FUNCTION__, __LINE__,## __VA_ARGS__)
 #else
 #define	DPRINTF(fmt, ...) do { } while (0)
 #endif
