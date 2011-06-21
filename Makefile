@@ -32,16 +32,16 @@ PREFIX?=	/usr/local
 LOCALBASE?=	/usr/local
 BINDIR=		${PREFIX}/sbin
 MANDIR=		${PREFIX}/man/man
-LIBDIR?=	${PREFIX}/lib
+LIBDIR=		${PREFIX}/lib
 INCLUDEDIR=	${PREFIX}/include
 MKLINT=		no
 NOGCCERROR=
 NO_PROFILE=
 
 LIB=		umidi20
-SHLIB_MAJOR=	2
+SHLIB_MAJOR=	1
 SHLIB_MINOR=	0
-CFLAGS+=	-Wall -O2
+CFLAGS+=	-Wall
 LDADD+=		-lpthread
 
 .if exists(${PREFIX}/include/jack/jack.h)
