@@ -1,6 +1,4 @@
 #
-# $FreeBSD: $
-#
 # Copyright (c) 2011 Hans Petter Selasky. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,24 +23,30 @@
 # SUCH DAMAGE.
 #
 #
-# Makefile for USB MIDI library
+# Makefile for Universal MIDI library
 #
 
-.if exists(%%PREFIX%%)
-PREFIX=		%%PREFIX%%
-.else
-PREFIX=		/usr/local
-.endif
+VERSION=2.0.0
 
-.if exists(${PREFIX}/include/jack/jack.h)
-HAVE_JACK=
-.endif
+PREFIX?=	/usr/local
+LOCALBASE?=	/usr/local
+BINDIR=		${PREFIX}/sbin
+MANDIR=		${PREFIX}/man/man
+LIBDIR?=	${PREFIX}/lib
+INCLUDEDIR=	${PREFIX}/include
+MKLINT=		no
+NOGCCERROR=
+NO_PROFILE=
 
 LIB=		umidi20
 SHLIB_MAJOR=	2
 SHLIB_MINOR=	0
-CFLAGS+=	-Wall -O2 -O3
+CFLAGS+=	-Wall -O2
 LDADD+=		-lpthread
+
+.if exists(${PREFIX}/include/jack/jack.h)
+HAVE_JACK=
+.endif
 
 SRCS+=		umidi20.c
 SRCS+=		umidi20_file.c
@@ -64,11 +68,28 @@ CFLAGS+=	-DHAVE_DEBUG
 CFLAGS+=	-g
 .endif
 
-MKLINT=		no
+.if defined(HAVE_MAN)
+MAN=		umidi20.3
+.else
+MAN=
+.endif
 
-NOGCCERROR=
-NO_PROFILE=
+package:
 
-MAN=	# no manual pages at the moment
+	make clean cleandepend HAVE_MAN=YES
+
+	tar -cvf temp.tar --exclude="*~" --exclude="*#" \
+		--exclude=".svn" --exclude="*.orig" --exclude="*.rej" \
+		Makefile umidi20.3 umidi20*.[ch]
+
+	rm -rf umidi-${VERSION}
+
+	mkdir umidi-${VERSION}
+
+	tar -xvf temp.tar -C umidi-${VERSION}
+
+	rm -rf temp.tar
+
+	tar -jcvf umidi-${VERSION}.tar.bz2 umidi-${VERSION}
 
 .include <bsd.lib.mk>
