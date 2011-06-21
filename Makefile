@@ -44,10 +44,6 @@ SHLIB_MINOR=	0
 CFLAGS+=	-Wall
 LDADD+=		-lpthread
 
-.if exists(${PREFIX}/include/jack/jack.h)
-HAVE_JACK=
-.endif
-
 SRCS+=		umidi20.c
 SRCS+=		umidi20_file.c
 SRCS+=		umidi20_assert.c
@@ -82,14 +78,14 @@ package:
 		--exclude=".svn" --exclude="*.orig" --exclude="*.rej" \
 		Makefile umidi20.3 umidi20*.[ch]
 
-	rm -rf umidi-${VERSION}
+	rm -rf libumidi-${VERSION}
 
-	mkdir umidi-${VERSION}
+	mkdir libumidi-${VERSION}
 
-	tar -xvf temp.tar -C umidi-${VERSION}
+	tar -xvf temp.tar -C libumidi-${VERSION}
 
 	rm -rf temp.tar
 
-	tar -jcvf umidi-${VERSION}.tar.bz2 umidi-${VERSION}
+	tar -jcvf libumidi-${VERSION}.tar.bz2 libumidi-${VERSION}
 
 .include <bsd.lib.mk>
