@@ -380,8 +380,10 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
     uint32_t curr_position)
 {
 	struct umidi20_event *event;
-	uint8_t cmd;
+	int len;
+	uint8_t cmd[16];
 	uint8_t drop;
+	uint8_t x;
 
 	curr_position -= dev->start_position;
 
@@ -394,27 +396,31 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 	}
 	/* record */
 
-	while (dev->file_no >= 0) {
+	if (dev->file_no < 0)
+		return;
 
-		/*
-	         * read data regularly so that
-	         * the buffer-size is kept low,
-	         * even if not recording:
-	         */
-		if (read(dev->file_no, &cmd, 1) != 1) {
-			if (errno != EWOULDBLOCK) {
-				dev->update = 1;
-			}
-			break;
-		}
-		if (dev->enabled_usr == 0) {
-			break;
-		}
-		event = umidi20_convert_to_event(&(dev->conv), cmd, 1);
+	/*
+	 * Read data regularly so that the buffer-size is kept
+	 * low, even if not recording. A length of zero
+	 * usually means end of file.
+	 */
+	if ((len = read(dev->file_no, cmd, sizeof(cmd))) <= 0) {
+		if (len == 0)
+			dev->update = 1;
+		else if (errno != EWOULDBLOCK)
+			dev->update = 1;
+		return;
+	}
+	if (dev->enabled_usr == 0)
+		return;
 
-		if (event == NULL) {
-			break;
-		}
+	for (x = 0; x != (uint8_t)len; x++) {
+
+		event = umidi20_convert_to_event(&(dev->conv), cmd[x], 1);
+
+		if (event == NULL)
+			continue;
+
 		DPRINTF("pos = %d\n", curr_position);
 
 		event->device_no = dev->device_no;
@@ -438,7 +444,6 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 			    (&(dev->queue), event, UMIDI20_CACHE_INPUT);
 		}
 	}
-	return;
 }
 
 static void
@@ -503,7 +508,7 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 					/* try to write data */
 
 					err = write(dev->file_no, event->cmd + 1, len);
-					if ((err < 0) && (errno != EWOULDBLOCK)) {
+					if ((err <= 0) && (errno != EWOULDBLOCK)) {
 						/* try to re-open the device */
 						dev->update = 1;
 						break;
@@ -595,7 +600,7 @@ umidi20_watchdog_files(void *arg)
 						break;
 #ifdef HAVE_JACK
 					case UMIDI20_ENABLED_CFG_JACK:
-						umidi20_jack_tx_close(x);
+						umidi20_jack_rx_close(x);
 						break;
 #endif
 					default:
@@ -2347,7 +2352,7 @@ umidi20_config_import(struct umidi20_config *cfg)
 
 	for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 
-		if (strcasecmp(root_dev.rec[x].fname,
+		if (strcmp(root_dev.rec[x].fname,
 		    cfg->cfg_dev[x].rec_fname)) {
 			root_dev.rec[x].update = 1;
 			strlcpy(root_dev.rec[x].fname,
@@ -2361,7 +2366,7 @@ umidi20_config_import(struct umidi20_config *cfg)
 			root_dev.rec[x].enabled_cfg =
 			    cfg->cfg_dev[x].rec_enabled_cfg;
 		}
-		if (strcasecmp(root_dev.play[x].fname,
+		if (strcmp(root_dev.play[x].fname,
 		    cfg->cfg_dev[x].play_fname)) {
 
 			root_dev.play[x].update = 1;

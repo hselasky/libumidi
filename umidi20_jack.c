@@ -113,8 +113,10 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 		fd = puj->write_fd[1];
 		puj->write_fd[1] = -1;
 		umidi20_jack_unlock();
-		if (fd > -1)
+		if (fd > -1) {
+			DPRINTF("Disconnect\n");
 			close(fd);
+		}
 	}
 	buf = jack_port_get_buffer(puj->input_port, nframes);
 	if (buf == NULL) {
@@ -321,8 +323,10 @@ umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 		fd = puj->read_fd[0];
 		puj->read_fd[0] = -1;
 		umidi20_jack_unlock();
-		if (fd > -1)
+		if (fd > -1) {
+			DPRINTF("Disconnect\n");
 			close(fd);
+		}
 	}
 	buf = jack_port_get_buffer(puj->output_port, nframes);
 	if (buf == NULL) {
@@ -638,15 +642,6 @@ umidi20_jack_init(const char *name)
 
 	if (jack_activate(umidi20_jack_client))
 		return (-1);
-
-	/* cleanup any stale connections */
-	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
-		puj = &umidi20_jack[n];
-		if (puj->input_port != NULL)
-			jack_port_disconnect(umidi20_jack_client, puj->input_port);
-		if (puj->output_port != NULL)
-			jack_port_disconnect(umidi20_jack_client, puj->output_port);
-	}
 
 	umidi20_jack_init_done = 1;
 
