@@ -377,8 +377,8 @@ mid_key_press(struct mid_data *d, uint8_t key, uint8_t vel, uint32_t duration)
 	uint8_t buf0[4];
 	uint8_t buf1[4];
 
-	buf0[0] = vel ? 0x90 : 0x80;
-	buf1[0] = 0x80;
+	buf0[0] = 0x90;
+	buf1[0] = 0x90;
 
 	buf0[1] = key & 0x7F;
 	buf1[1] = key & 0x7F;
