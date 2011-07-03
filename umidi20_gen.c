@@ -416,6 +416,30 @@ mid_get_channel(struct mid_data *d)
 }
 
 void
+mid_control(struct mid_data *d, uint8_t ctrl, uint8_t val)
+{
+	uint8_t buf[4];
+
+	buf[0] = 0xB0;
+	buf[1] = ctrl & 0x7F;
+	buf[2] = val & 0x7F;
+
+	mid_add_raw(d, buf, 3, 0);
+}
+
+void
+mid_pitch_bend(struct mid_data *d, uint16_t val)
+{
+	uint8_t buf[4];
+
+	buf[0] = 0xE0;
+	buf[1] = val & 0x7F;
+	buf[2] = (val >> 7) & 0x7F;
+
+	mid_add_raw(d, buf, 3, 0);
+}
+
+void
 mid_pedal(struct mid_data *d, uint8_t on)
 {
 	uint8_t buf[4];

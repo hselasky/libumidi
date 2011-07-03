@@ -807,6 +807,14 @@ umidi20_event_is_meta(struct umidi20_event *event)
 }
 
 uint8_t
+umidi20_event_is_pitch_bend(struct umidi20_event *event)
+{
+	if (event == NULL)
+		return 0;
+	return ((event->cmd[1] & 0xF0) == 0xE0);
+}
+
+uint8_t
 umidi20_event_is_key_start(struct umidi20_event *event)
 {
 	if (event == NULL)

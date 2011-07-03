@@ -410,6 +410,7 @@ extern void umidi20_event_free(struct umidi20_event *event);
 extern struct umidi20_event *umidi20_event_copy(struct umidi20_event *event, uint8_t flag);
 extern struct umidi20_event *umidi20_event_from_data(const uint8_t *data_ptr, uint32_t data_len, uint8_t flag);
 extern uint32_t umidi20_event_get_what(struct umidi20_event *event);
+extern uint8_t umidi20_event_is_pitch_bend(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_key_start(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_key_end(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_tempo(struct umidi20_event *event);
@@ -677,6 +678,8 @@ void	mid_key_press(struct mid_data *d, uint8_t key, uint8_t vel, uint32_t durati
 void	mid_key_press_n(struct mid_data *d, const uint8_t *pkey, uint8_t nkey, uint8_t vel, uint32_t duration);
 void	mid_set_channel(struct mid_data *d, uint8_t channel);
 uint8_t	mid_get_channel(struct mid_data *d);
+void	mid_control(struct mid_data *d, uint8_t ctrl, uint8_t val);
+void	mid_pitch_bend(struct mid_data *d, uint16_t val);
 void	mid_pedal(struct mid_data *d, uint8_t on);
 void	mid_s_pedal(struct mid_data *d, int32_t db, int32_t dm, int32_t da, uint8_t on);
 void	mid_init(struct mid_data *d, struct umidi20_track *track);
