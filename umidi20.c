@@ -45,6 +45,8 @@
 #define	DPRINTF(fmt, ...) do { } while (0)
 #endif
 
+#define	PTHREAD_NULL ((pthread_t)-1L)
+
 /* prototypes */
 
 static void umidi20_uninit(void);
@@ -138,19 +140,17 @@ umidi20_init(void)
 
 	if (pthread_create(&(root_dev.thread_alloc), NULL,
 	    &umidi20_watchdog_alloc, NULL)) {
-		root_dev.thread_alloc = NULL;
+		root_dev.thread_alloc = PTHREAD_NULL;
 	}
 	if (pthread_create(&(root_dev.thread_play_rec), NULL,
 	    &umidi20_watchdog_play_rec, NULL)) {
-		root_dev.thread_play_rec = NULL;
+		root_dev.thread_play_rec = PTHREAD_NULL;
 	}
 	if (pthread_create(&(root_dev.thread_files), NULL,
 	    &umidi20_watchdog_files, NULL)) {
-		root_dev.thread_files = NULL;
+		root_dev.thread_files = PTHREAD_NULL;
 	}
 	atexit(&umidi20_uninit);
-
-	return;
 }
 
 static void
@@ -165,7 +165,6 @@ umidi20_uninit(void)
 	    &(root_dev.mutex));
 
 	pthread_mutex_unlock(&(root_dev.mutex));
-	return;
 }
 
 static void
@@ -177,7 +176,7 @@ umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *p_mtx)
 	pthread_mutex_assert(p_mtx, MA_OWNED);
 
 	td = *p_td;
-	*p_td = NULL;
+	*p_td = PTHREAD_NULL;
 
 	if (td) {
 		while (pthread_mutex_unlock(p_mtx) == 0) {
@@ -190,7 +189,6 @@ umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *p_mtx)
 		while (recurse--)
 			pthread_mutex_lock(p_mtx);
 	}
-	return;
 }
 
 static void *
@@ -200,7 +198,7 @@ umidi20_watchdog_alloc(void *arg)
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
-	while (root_dev.thread_alloc) {
+	while (root_dev.thread_alloc != PTHREAD_NULL) {
 
 		while (UMIDI20_IF_QLEN(&(root_dev.free_queue)) < UMIDI20_BUF_EVENTS) {
 			pthread_mutex_unlock(&(root_dev.mutex));
@@ -233,7 +231,7 @@ umidi20_watchdog_play_rec(void *arg)
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
-	while (root_dev.thread_play_rec) {
+	while (root_dev.thread_play_rec != PTHREAD_NULL) {
 
 		umidi20_gettime(&ts);
 
@@ -528,7 +526,6 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 			break;
 		}
 	}
-	return;
 }
 
 static void *
@@ -540,7 +537,7 @@ umidi20_watchdog_files(void *arg)
 
 	pthread_mutex_lock(&(root_dev.mutex));
 
-	while (root_dev.thread_files) {
+	while (root_dev.thread_files != PTHREAD_NULL) {
 
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 
@@ -679,7 +676,6 @@ umidi20_event_free(struct umidi20_event *event)
 		free(event);
 		event = p_next;
 	}
-	return;
 }
 
 struct umidi20_event *
@@ -875,7 +871,6 @@ umidi20_event_set_channel(struct umidi20_event *event, uint8_t c)
 		event->cmd[1] &= 0xF0;
 		event->cmd[1] |= (c & 0x0F);
 	}
-	return;
 }
 
 uint8_t
@@ -895,7 +890,6 @@ umidi20_event_set_key(struct umidi20_event *event, uint8_t k)
 	if (what & UMIDI20_WHAT_KEY) {
 		event->cmd[2] = k & 0x7F;
 	}
-	return;
 }
 
 uint8_t
@@ -915,7 +909,6 @@ umidi20_event_set_velocity(struct umidi20_event *event, uint8_t k)
 	if (what & UMIDI20_WHAT_VELOCITY) {
 		event->cmd[3] = k & 0x7F;
 	}
-	return;
 }
 
 uint8_t
@@ -929,7 +922,7 @@ umidi20_event_get_pressure(struct umidi20_event *event)
 	if (what & UMIDI20_WHAT_KEY_PRESSURE) {
 		return event->cmd[3];
 	}
-	return 0;
+	return (0);
 }
 
 void
@@ -943,7 +936,6 @@ umidi20_event_set_pressure(struct umidi20_event *event, uint8_t p)
 	if (what & UMIDI20_WHAT_KEY_PRESSURE) {
 		event->cmd[3] = p & 0x7F;
 	}
-	return;
 }
 
 uint8_t
@@ -963,7 +955,6 @@ umidi20_event_set_control_address(struct umidi20_event *event, uint8_t a)
 	if (what & UMIDI20_WHAT_CONTROL_ADDRESS) {
 		event->cmd[2] = a & 0x7F;
 	}
-	return;
 }
 
 uint8_t
@@ -983,7 +974,6 @@ umidi20_event_set_control_value(struct umidi20_event *event, uint8_t a)
 	if (what & UMIDI20_WHAT_CONTROL_VALUE) {
 		event->cmd[3] = a & 0x7F;
 	}
-	return;
 }
 
 uint8_t
@@ -1003,7 +993,6 @@ umidi20_event_set_program_number(struct umidi20_event *event, uint8_t n)
 	if (what & UMIDI20_WHAT_PROGRAM_VALUE) {
 		event->cmd[2] = n & 0x7F;
 	}
-	return;
 }
 
 uint16_t
@@ -1024,7 +1013,6 @@ umidi20_event_set_pitch_value(struct umidi20_event *event, uint16_t n)
 		event->cmd[2] = n & 0x7F;
 		event->cmd[3] = (n >> 7) & 0x7F;
 	}
-	return;
 }
 
 uint32_t
@@ -1083,7 +1071,6 @@ umidi20_event_copy_out(struct umidi20_event *event, uint8_t *dst,
 		offset = 0;
 		event = event->p_next;
 	}
-	return;
 }
 
 uint8_t
@@ -1099,7 +1086,6 @@ umidi20_event_set_meta_number(struct umidi20_event *event, uint8_t n)
 	if (umidi20_event_is_meta(event)) {
 		event->cmd[2] = n & 0x7F;
 	}
-	return;
 }
 
 uint32_t
@@ -1144,8 +1130,6 @@ umidi20_event_set_tempo(struct umidi20_event *event,
 	event->cmd[4] = (tempo >> 8) & 0xFF;
 	event->cmd[5] = (tempo & 0xFF);
 	event->cmd[0] = 6;		/* bytes */
-
-	return;
 }
 
 struct umidi20_event *
@@ -1218,7 +1202,6 @@ umidi20_event_queue_copy(struct umidi20_event_queue *src,
 		}
 		event_a = event_a->p_nextpkt;
 	}
-	return;
 }
 
 void
@@ -1255,7 +1238,6 @@ umidi20_event_queue_move(struct umidi20_event_queue *src,
 		}
 		event_a = event_n;
 	}
-	return;
 }
 
 void
@@ -1273,7 +1255,6 @@ umidi20_event_queue_insert(struct umidi20_event_queue *dst,
 		/* queue before event */
 		UMIDI20_IF_ENQUEUE_BEFORE(dst, event_a, event_n);
 	}
-	return;
 }
 
 void
@@ -1290,7 +1271,6 @@ umidi20_event_queue_drain(struct umidi20_event_queue *src)
 		}
 		umidi20_event_free(event);
 	}
-	return;
 }
 
 /*
@@ -1575,7 +1555,6 @@ umidi20_gettime(struct timespec *ts)
 	if (clock_gettime(CLOCK_MONOTONIC, ts) == -1) {
 		memset(ts, 0, sizeof(*ts));
 	}
-	return;
 }
 
 uint32_t
@@ -1611,7 +1590,6 @@ umidi20_device_start(struct umidi20_device *dev,
 	dev->start_position = start_position;
 	dev->end_offset = end_offset;
 	dev->enabled_usr = 1;
-	return;
 }
 
 static void
@@ -1675,8 +1653,6 @@ umidi20_put_queue(uint8_t device_no,
 	}
 
 	pthread_mutex_unlock(&(root_dev.mutex));
-
-	return;
 }
 
 static struct umidi20_event *
@@ -1751,7 +1727,6 @@ umidi20_start(uint32_t start_offset, uint32_t end_offset, uint8_t flag)
 	}
 done:
 	pthread_mutex_unlock(&(root_dev.mutex));
-	return;
 }
 
 void
@@ -1775,7 +1750,6 @@ umidi20_stop(uint8_t flag)
 		}
 	}
 	pthread_mutex_unlock(&(root_dev.mutex));
-	return;
 }
 
 uint8_t
@@ -1862,7 +1836,6 @@ umidi20_song_free(struct umidi20_song *song)
 	}
 
 	free(song);
-	return;
 }
 
 static void
@@ -1933,7 +1906,6 @@ umidi20_watchdog_song_sub(struct umidi20_song *song)
 			umidi20_put_queue(event->device_no, event);
 		}
 	}
-	return;
 }
 
 
@@ -1994,7 +1966,6 @@ umidi20_song_set_record_track(struct umidi20_song *song,
 	}
 	pthread_mutex_assert(song->p_mtx, MA_OWNED);
 	song->queue.ifq_cache[UMIDI20_CACHE_INPUT] = track;
-	return;
 }
 
 /*
@@ -2047,8 +2018,7 @@ umidi20_song_start(struct umidi20_song *song, uint32_t start_offset,
 
 	song->pc_flags |= flags;
 
-done:
-	return;
+done:;
 }
 
 void
@@ -2074,8 +2044,7 @@ umidi20_song_stop(struct umidi20_song *song, uint8_t flags)
 
 	song->pc_flags &= ~flags;
 
-done:
-	return;
+done:;
 }
 
 void
@@ -2099,7 +2068,6 @@ umidi20_song_track_add(struct umidi20_song *song,
 			UMIDI20_IF_ENQUEUE_AFTER(&(song->queue), track_ref, track_new);
 		}
 	}
-	return;
 }
 
 void
@@ -2117,8 +2085,6 @@ umidi20_song_track_remove(struct umidi20_song *song,
 	UMIDI20_IF_REMOVE(&(song->queue), track);
 
 	umidi20_track_free(track);
-
-	return;
 }
 
 void
@@ -2257,8 +2223,7 @@ fail:
 			}
 		}
 	}
-done:
-	return;
+done:;
 }
 
 void
@@ -2292,7 +2257,6 @@ umidi20_song_recompute_tick(struct umidi20_song *song)
 			}
 		}
 	}
-	return;
 }
 
 void
@@ -2317,8 +2281,6 @@ umidi20_song_compute_max_min(struct umidi20_song *song)
 	}
 
 	song->track_max = UMIDI20_IF_QLEN(&(song->queue));
-
-	return;
 }
 
 void
@@ -2348,7 +2310,6 @@ umidi20_config_export(struct umidi20_config *cfg)
 	}
 
 	pthread_mutex_unlock(&(root_dev.mutex));
-	return;
 }
 
 void
@@ -2510,5 +2471,4 @@ umidi20_track_compute_max_min(struct umidi20_track *track)
 			    (event->position - event_last->position);
 		}
 	}
-	return;
 }

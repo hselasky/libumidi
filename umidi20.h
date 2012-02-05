@@ -32,6 +32,7 @@
 
 #include <pthread.h>
 #include <signal.h>
+#include <stdint.h>
 
 __BEGIN_DECLS
 
