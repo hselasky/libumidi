@@ -47,6 +47,10 @@
 
 #define	PTHREAD_NULL ((pthread_t)-1L)
 
+#define	STRLCPY(a,b,c) do { \
+    strncpy(a,b,c); ((char *)(a))[(c)-1] = 0; \
+} while (0)
+
 /* prototypes */
 
 static void umidi20_uninit(void);
@@ -1797,7 +1801,7 @@ umidi20_song_alloc(pthread_mutex_t *p_mtx, uint16_t file_format,
 
 		if (pthread_create(&(song->thread_io), NULL,
 		    &umidi20_watchdog_song, song)) {
-			song->thread_io = NULL;
+			song->thread_io = PTHREAD_NULL;
 		}
 		song->midi_file_format = file_format;
 
@@ -2294,14 +2298,14 @@ umidi20_config_export(struct umidi20_config *cfg)
 
 	for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 
-		strlcpy(cfg->cfg_dev[x].rec_fname,
+		STRLCPY(cfg->cfg_dev[x].rec_fname,
 		    root_dev.rec[x].fname,
 		    sizeof(cfg->cfg_dev[x].rec_fname));
 
 		cfg->cfg_dev[x].rec_enabled_cfg =
 		    root_dev.rec[x].enabled_cfg;
 
-		strlcpy(cfg->cfg_dev[x].play_fname,
+		STRLCPY(cfg->cfg_dev[x].play_fname,
 		    root_dev.play[x].fname,
 		    sizeof(cfg->cfg_dev[x].play_fname));
 
@@ -2324,7 +2328,7 @@ umidi20_config_import(struct umidi20_config *cfg)
 		if (strcmp(root_dev.rec[x].fname,
 		    cfg->cfg_dev[x].rec_fname)) {
 			root_dev.rec[x].update = 1;
-			strlcpy(root_dev.rec[x].fname,
+			STRLCPY(root_dev.rec[x].fname,
 			    cfg->cfg_dev[x].rec_fname,
 			    sizeof(root_dev.rec[x].fname));
 		}
@@ -2339,7 +2343,7 @@ umidi20_config_import(struct umidi20_config *cfg)
 		    cfg->cfg_dev[x].play_fname)) {
 
 			root_dev.play[x].update = 1;
-			strlcpy(root_dev.play[x].fname,
+			STRLCPY(root_dev.play[x].fname,
 			    cfg->cfg_dev[x].play_fname,
 			    sizeof(root_dev.play[x].fname));
 		}
