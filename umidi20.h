@@ -406,6 +406,7 @@ extern uint32_t umidi20_get_curr_position(void);
 extern void umidi20_set_record_event_callback(uint8_t device_no, umidi20_event_callback_t *func, void *arg);
 extern void umidi20_set_play_event_callback(uint8_t device_no, umidi20_event_callback_t *func, void *arg);
 extern void umidi20_init(void);
+extern void umidi20_uninit(void);
 extern struct umidi20_event *umidi20_event_alloc(struct umidi20_event ***ppp_next, uint8_t flag);
 extern void umidi20_event_free(struct umidi20_event *event);
 extern struct umidi20_event *umidi20_event_copy(struct umidi20_event *event, uint8_t flag);

@@ -154,10 +154,9 @@ umidi20_init(void)
 	    &umidi20_watchdog_files, NULL)) {
 		root_dev.thread_files = PTHREAD_NULL;
 	}
-	atexit(&umidi20_uninit);
 }
 
-static void
+void
 umidi20_uninit(void)
 {
 	pthread_mutex_lock(&(root_dev.mutex));
@@ -183,9 +182,8 @@ umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *p_mtx)
 	*p_td = PTHREAD_NULL;
 
 	if (td != PTHREAD_NULL) {
-		while (pthread_mutex_unlock(p_mtx) == 0) {
+		while (pthread_mutex_unlock(p_mtx) == 0)
 			recurse++;
-		}
 
 		pthread_kill(td, SIGURG);
 		pthread_join(td, NULL);
@@ -2022,7 +2020,7 @@ umidi20_song_start(struct umidi20_song *song, uint32_t start_offset,
 
 	song->pc_flags |= flags;
 
-done:;
+done:	;
 }
 
 void
@@ -2048,7 +2046,7 @@ umidi20_song_stop(struct umidi20_song *song, uint8_t flags)
 
 	song->pc_flags &= ~flags;
 
-done:;
+done:	;
 }
 
 void
@@ -2227,7 +2225,7 @@ fail:
 			}
 		}
 	}
-done:;
+done:	;
 }
 
 void
