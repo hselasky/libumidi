@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 Hans Petter Selasky. All rights reserved.
+# Copyright (c) 2011-2012 Hans Petter Selasky. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -42,7 +42,7 @@ LIB=		umidi20
 SHLIB_MAJOR=	1
 SHLIB_MINOR=	0
 CFLAGS+=	-Wall
-CFLAGS+=	-D__USE_UNIX98
+CFLAGS+=	-D_GNU_SOURCE
 LDADD+=		-lpthread
 
 SRCS+=		umidi20.c
