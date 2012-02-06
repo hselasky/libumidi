@@ -42,6 +42,7 @@ LIB=		umidi20
 SHLIB_MAJOR=	1
 SHLIB_MINOR=	0
 CFLAGS+=	-Wall
+CFLAGS+=	-D__USE_UNIX98
 LDADD+=		-lpthread
 
 SRCS+=		umidi20.c
