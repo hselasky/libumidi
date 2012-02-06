@@ -182,7 +182,7 @@ umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *p_mtx)
 	td = *p_td;
 	*p_td = PTHREAD_NULL;
 
-	if (td) {
+	if (td != PTHREAD_NULL) {
 		while (pthread_mutex_unlock(p_mtx) == 0) {
 			recurse++;
 		}
@@ -216,7 +216,7 @@ umidi20_watchdog_alloc(void *arg)
 		}
 		pthread_mutex_unlock(&(root_dev.mutex));
 
-		while (usleep(100000));
+		usleep(100000);
 
 		pthread_mutex_lock(&(root_dev.mutex));
 	}
@@ -259,7 +259,7 @@ umidi20_watchdog_play_rec(void *arg)
 
 		pthread_mutex_unlock(&(root_dev.mutex));
 
-		while (usleep(1000));
+		usleep(1000);
 
 		pthread_mutex_lock(&(root_dev.mutex));
 	}
@@ -1920,7 +1920,7 @@ umidi20_watchdog_song(void *arg)
 
 	pthread_mutex_lock(song->p_mtx);
 
-	while (song->thread_io) {
+	while (song->thread_io != PTHREAD_NULL) {
 
 		umidi20_watchdog_song_sub(song);
 
