@@ -53,11 +53,8 @@
 
 /* prototypes */
 
-static void umidi20_uninit(void);
 static void *umidi20_watchdog_alloc(void *arg);
-
 static void *umidi20_watchdog_play_rec(void *arg);
-
 static void umidi20_watchdog_record_sub(struct umidi20_device *dev, struct umidi20_device *play_dev, uint32_t position);
 static void umidi20_watchdog_play_sub(struct umidi20_device *dev, uint32_t position);
 static void *umidi20_watchdog_files(void *arg);
