@@ -35,15 +35,17 @@ MANDIR=		${PREFIX}/man/man
 LIBDIR=		${PREFIX}/lib
 INCLUDEDIR=	${PREFIX}/include
 MKLINT=		no
+NO_WERROR=
 NOGCCERROR=
 NO_PROFILE=
 
 LIB=		umidi20
 SHLIB_MAJOR=	1
 SHLIB_MINOR=	0
-CFLAGS+=	-Wall
 CFLAGS+=	-D_GNU_SOURCE
 LDADD+=		-lpthread
+
+WARNS=		3
 
 SRCS+=		umidi20.c
 SRCS+=		umidi20_file.c
