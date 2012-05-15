@@ -82,7 +82,7 @@ midi_read_multi(struct midi_file *pmf, void *ptr, uint32_t len)
 
 	rem = pmf->end - pmf->off;
 	if (len > rem) {
-		memset(ptr + rem, 0, len - rem);
+		memset((char *)ptr + rem, 0, len - rem);
 		len = rem;
 	}
 	memcpy(ptr, pmf->ptr + pmf->off, len);

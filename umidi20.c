@@ -1679,17 +1679,6 @@ umidi20_get_queue(uint8_t device_no)
 	return event;
 }
 
-struct timespec
-umidi20_get_curr_time(void)
-{
-	struct timespec ts;
-
-	pthread_mutex_lock(&(root_dev.mutex));
-	ts = root_dev.curr_time;
-	pthread_mutex_unlock(&(root_dev.mutex));
-	return ts;
-}
-
 void
 umidi20_start(uint32_t start_offset, uint32_t end_offset, uint8_t flag)
 {

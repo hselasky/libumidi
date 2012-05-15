@@ -412,6 +412,7 @@ extern void umidi20_event_free(struct umidi20_event *event);
 extern struct umidi20_event *umidi20_event_copy(struct umidi20_event *event, uint8_t flag);
 extern struct umidi20_event *umidi20_event_from_data(const uint8_t *data_ptr, uint32_t data_len, uint8_t flag);
 extern uint32_t umidi20_event_get_what(struct umidi20_event *event);
+extern uint8_t umidi20_event_is_meta(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_pitch_bend(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_key_start(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_key_end(struct umidi20_event *event);
