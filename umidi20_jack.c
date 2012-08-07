@@ -83,13 +83,13 @@ static const char *umidi20_jack_name;
 #endif
 
 static void
-umidi20_jack_lock()
+umidi20_jack_lock(void)
 {
 	pthread_mutex_lock(&umidi20_jack_mtx);
 }
 
 static void
-umidi20_jack_unlock()
+umidi20_jack_unlock(void)
 {
 	pthread_mutex_unlock(&umidi20_jack_mtx);
 }
@@ -142,7 +142,7 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 		}
 		umidi20_jack_lock();
 		if (puj->write_fd[1] > -1) {
-			if (write(puj->write_fd[1], event.buffer, event.size) != event.size) {
+			if (write(puj->write_fd[1], event.buffer, event.size) != (int)event.size) {
 				DPRINTF("write() failed.\n");
 			}
 		}
