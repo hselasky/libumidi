@@ -1596,6 +1596,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 {
 	uint32_t y;
 	uint8_t buf[4];
+	uint8_t timeout = 16;
 
 	dev->enabled_usr = 0;
 	umidi20_convert_reset(&(dev->conv));
@@ -1615,8 +1616,11 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[0] = 0xB0 | y;
 		buf[1] = 0x78;
 		buf[2] = 0;
-		while (write(play_fd, buf, 3) < 0 && errno == EWOULDBLOCK)
-			usleep(1000);
+		while (write(play_fd, buf, 3) < 0 &&
+		    errno == EWOULDBLOCK && timeout != 0) {
+			usleep(10);
+			timeout--;
+		}
 	}
 
 	/* turn pedal off */
@@ -1624,8 +1628,11 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[0] = 0xB0 | y;
 		buf[1] = 0x40;
 		buf[2] = 0;
-		while (write(play_fd, buf, 3) < 0 && errno == EWOULDBLOCK)
-			usleep(1000);
+		while (write(play_fd, buf, 3) < 0 &&
+		    errno == EWOULDBLOCK && timeout != 0) {
+			usleep(10);
+			timeout--;
+		}
 	}
 }
 
