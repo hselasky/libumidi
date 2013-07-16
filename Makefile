@@ -50,7 +50,6 @@ WARNS=		3
 
 SRCS+=		umidi20.c
 SRCS+=		umidi20_file.c
-SRCS+=		umidi20_assert.c
 SRCS+=		umidi20_gen.c
 INCS=		umidi20.h
 
