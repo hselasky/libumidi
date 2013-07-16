@@ -36,6 +36,10 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#ifdef __APPLE__
+#include <sched.h>
+#endif
+
 #include "umidi20.h"
 
 #ifdef HAVE_DEBUG
@@ -360,7 +364,11 @@ umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg)
 			TAILQ_REMOVE(&root_dev.timers, entry, entry);
 			while (entry->pending != 0) {
 				pthread_mutex_unlock(&(root_dev.mutex));
+#ifdef __APPLE__
+				sched_yield();
+#else
 				pthread_yield();
+#endif
 				pthread_mutex_lock(&(root_dev.mutex));
 			}
 			pthread_mutex_unlock(&(root_dev.mutex));
@@ -1551,9 +1559,15 @@ uint8_t	umidi20_command_to_len[16] = {
 void
 umidi20_gettime(struct timespec *ts)
 {
+#ifdef __APPLE__
+	uint64_t value = mach_absolute_time();
+	ts->tv_nsec = value % 1000000000ULL;
+	ts->tv_sec = value / 1000000000ULL;
+#else
 	if (clock_gettime(CLOCK_MONOTONIC, ts) == -1) {
 		memset(ts, 0, sizeof(*ts));
 	}
+#endif
 }
 
 uint32_t
