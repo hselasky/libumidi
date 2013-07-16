@@ -37,6 +37,7 @@
 #include <fcntl.h>
 
 #ifdef __APPLE__
+#include <mach/mach_time.h>
 #include <sched.h>
 #endif
 
