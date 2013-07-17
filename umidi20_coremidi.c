@@ -82,13 +82,13 @@ static char *
 umidi20_dup_cfstr(CFStringRef str)
 {
 	char *ptr;
-	CFIndex len = CFStringGetLength(str);
+	CFIndex len = CFStringGetLength(str) + 1;
 
-	ptr = malloc(len + 1);
+	ptr = malloc(len);
 	if (ptr == NULL)
 		return (NULL);
-	memset(ptr, 0, len + 1);
 	CFStringGetCString(str, ptr, len, kCFStringEncodingMacRoman);
+	ptr[len - 1] = 0;
 	return (ptr);
 }
 
@@ -288,7 +288,6 @@ umidi20_write_process(void *arg)
 {
 	MIDIPacketList pktList;
 	MIDIPacket *pkt;
-	void *buf;
 	uint8_t data[1];
 	uint8_t len;
 	int n;
