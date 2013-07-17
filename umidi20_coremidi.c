@@ -112,7 +112,7 @@ umidi20_coremidi_unlock(void)
 }
 
 static void
-umidi20_read_event(const MIDIPacketList * pktlist, void *refCon, void *connRefCon)
+umidi20_read_event(const MIDIPacketList * pktList, void *refCon, void *connRefCon)
 {
 	struct umidi20_coremidi *puj = refCon;
 	uint32_t n;
@@ -121,7 +121,7 @@ umidi20_read_event(const MIDIPacketList * pktlist, void *refCon, void *connRefCo
 	if (puj->write_fd[1] > -1) {
 		const MIDIPacket *packet = &pktList->packet[0];
 
-		for (n = 0; n != pktlist->numPackets; n++) {
+		for (n = 0; n != pktList->numPackets; n++) {
 			write(puj->write_fd[1], packet->data, packet->length);
 			packet = MIDIPacketNext(packet);
 		}
@@ -413,7 +413,7 @@ int
 umidi20_coremidi_rx_open(uint8_t n, const char *name)
 {
 	struct umidi20_coremidi *puj;
-	MIDIEndpointRef src = NULL;
+	MIDIEndpointRef src = 0;
 	unsigned long x;
 	unsigned long y;
 	int error;
@@ -430,12 +430,12 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 
 	y = MIDIGetNumberOfSources();
 	for (x = 0; x != y; x++) {
-		CFStringRef name;
+		CFStringRef str;
 
 		src = MIDIGetSource(x);
 		if (noErr == MIDIObjectGetStringProperty(src,
-		    kMIDIPropertyName, &name)) {
-			ptr = umidi20_dup_cfstr(name);
+		    kMIDIPropertyName, &str)) {
+			ptr = umidi20_dup_cfstr(str);
 			if (ptr != NULL && strcmp(ptr, name) == 0) {
 				free(ptr);
 				break;
@@ -471,7 +471,7 @@ int
 umidi20_coremidi_tx_open(uint8_t n, const char *name)
 {
 	struct umidi20_coremidi *puj;
-	MIDIEndpointRef dst = NULL;
+	MIDIEndpointRef dst = 0;
 	unsigned long x;
 	unsigned long y;
 	int error;
@@ -488,12 +488,12 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 
 	y = MIDIGetNumberOfDestinations();
 	for (x = 0; x != y; x++) {
-		CFStringRef name;
+		CFStringRef str;
 
 		dst = MIDIGetDestination(x);
 		if (noErr == MIDIObjectGetStringProperty(dst,
-		    kMIDIPropertyName, &name)) {
-			ptr = umidi20_dup_cfstr(name);
+		    kMIDIPropertyName, &str)) {
+			ptr = umidi20_dup_cfstr(str);
 			if (ptr != NULL && strcmp(ptr, name) == 0) {
 				free(ptr);
 				break;
@@ -594,7 +594,7 @@ umidi20_coremidi_init(const char *name)
 	MIDIClientCreate(umidi20_create_cfstr(umidi20_coremidi_name),
 	    umidi20_coremidi_notify, NULL, &umidi20_coremidi_client);
 
-	if (umidi20_coremidi_client == NULL)
+	if (umidi20_coremidi_client == 0)
 		return (-1);
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
