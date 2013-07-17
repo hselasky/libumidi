@@ -284,6 +284,7 @@ struct umidi20_config_dev {
 #define	UMIDI20_DISABLE_CFG 0
 #define	UMIDI20_ENABLED_CFG_DEV 1
 #define	UMIDI20_ENABLED_CFG_JACK 2
+#define	UMIDI20_ENABLED_CFG_COREMIDI 3
 };
 
 struct umidi20_config {
@@ -492,11 +493,28 @@ extern uint8_t umidi20_save_file(struct umidi20_song *song, uint8_t **pptr, uint
  *--------------------------------------------------------------------------*/
 const char **umidi20_jack_alloc_inputs(void);
 const char **umidi20_jack_alloc_outputs(void);
+void umidi20_jack_free_inputs(const char **);
+void umidi20_jack_free_outputs(const char **);
+
 int	umidi20_jack_rx_open(uint8_t n, const char *name);
 int	umidi20_jack_tx_open(uint8_t n, const char *name);
 int	umidi20_jack_rx_close(uint8_t n);
 int	umidi20_jack_tx_close(uint8_t n);
 int	umidi20_jack_init(const char *name);
+
+/*--------------------------------------------------------------------------*
+ * prototypes from "umidi20_coremidi.c"
+ *--------------------------------------------------------------------------*/
+const char **umidi20_coremidi_alloc_inputs(void);
+const char **umidi20_coremidi_alloc_outputs(void);
+void umidi20_coremidi_free_inputs(const char **);
+void umidi20_coremidi_free_outputs(const char **);
+
+int	umidi20_coremidi_rx_open(uint8_t n, const char *name);
+int	umidi20_coremidi_tx_open(uint8_t n, const char *name);
+int	umidi20_coremidi_rx_close(uint8_t n);
+int	umidi20_coremidi_tx_close(uint8_t n);
+int	umidi20_coremidi_init(const char *name);
 
 /*--------------------------------------------------------------------------*
  * MIDI generator code

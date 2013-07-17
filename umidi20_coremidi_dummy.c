@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011 Hans Petter Selasky <hselasky@FreeBSD.org>
+ * Copyright (c) 2013 Hans Petter Selasky <hselasky@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,53 +29,53 @@
 #include "umidi20.h"
 
 const char **
-umidi20_jack_alloc_inputs(void)
+umidi20_coremidi_alloc_inputs(void)
 {
 	return (NULL);
 }
 
 const char **
-umidi20_jack_alloc_outputs(void)
+umidi20_coremidi_alloc_outputs(void)
 {
 	return (NULL);
 }
 
 void
-umidi20_jack_free_inputs(const char **ports)
+umidi20_coremidi_free_inputs(const char **ports)
 {
 }
 
 void
-umidi20_jack_free_outputs(const char **ports)
+umidi20_coremidi_free_outputs(const char **ports)
 {
 }
 
 int
-umidi20_jack_rx_open(uint8_t n, const char *name)
-{
-	return (-1);
-}
-
-int
-umidi20_jack_tx_open(uint8_t n, const char *name)
+umidi20_coremidi_rx_open(uint8_t n, const char *name)
 {
 	return (-1);
 }
 
 int
-umidi20_jack_rx_close(uint8_t n)
+umidi20_coremidi_tx_open(uint8_t n, const char *name)
 {
 	return (-1);
 }
 
 int
-umidi20_jack_tx_close(uint8_t n)
+umidi20_coremidi_rx_close(uint8_t n)
 {
 	return (-1);
 }
 
 int
-umidi20_jack_init(const char *name)
+umidi20_coremidi_tx_close(uint8_t n)
+{
+	return (-1);
+}
+
+int
+umidi20_coremidi_init(const char *name)
 {
 	return (-2);
 }

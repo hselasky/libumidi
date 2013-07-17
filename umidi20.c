@@ -561,11 +561,12 @@ umidi20_watchdog_files(void *arg)
 					case UMIDI20_ENABLED_CFG_DEV:
 						close(file_no);
 						break;
-#ifdef HAVE_JACK
 					case UMIDI20_ENABLED_CFG_JACK:
 						umidi20_jack_tx_close(x);
 						break;
-#endif
+					case UMIDI20_ENABLED_CFG_COREMIDI:
+						umidi20_coremidi_tx_close(x);
+						break;
 					default:
 						break;
 					}
@@ -574,11 +575,12 @@ umidi20_watchdog_files(void *arg)
 				case UMIDI20_ENABLED_CFG_DEV:
 					file_no = open(dev->fname, O_WRONLY | O_NONBLOCK);
 					break;
-#ifdef HAVE_JACK
 				case UMIDI20_ENABLED_CFG_JACK:
 					file_no = umidi20_jack_tx_open(x, dev->fname);
 					break;
-#endif
+				case UMIDI20_ENABLED_CFG_COREMIDI:
+					file_no = umidi20_coremidi_tx_open(x, dev->fname);
+					break;
 				default:
 					file_no = -1;
 					break;
@@ -603,11 +605,12 @@ umidi20_watchdog_files(void *arg)
 					case UMIDI20_ENABLED_CFG_DEV:
 						close(file_no);
 						break;
-#ifdef HAVE_JACK
 					case UMIDI20_ENABLED_CFG_JACK:
 						umidi20_jack_rx_close(x);
 						break;
-#endif
+					case UMIDI20_ENABLED_CFG_COREMIDI:
+						umidi20_coremidi_rx_close(x);
+						break;
 					default:
 						break;
 					}
@@ -616,11 +619,12 @@ umidi20_watchdog_files(void *arg)
 				case UMIDI20_ENABLED_CFG_DEV:
 					file_no = open(dev->fname, O_RDONLY | O_NONBLOCK);
 					break;
-#ifdef HAVE_JACK
 				case UMIDI20_ENABLED_CFG_JACK:
 					file_no = umidi20_jack_rx_open(x, dev->fname);
 					break;
-#endif
+				case UMIDI20_ENABLED_CFG_COREMIDI:
+					file_no = umidi20_coremidi_rx_open(x, dev->fname);
+					break;
 				default:
 					file_no = -1;
 					break;

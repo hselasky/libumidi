@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011-2012 Hans Petter Selasky. All rights reserved.
+# Copyright (c) 2011-2013 Hans Petter Selasky. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -57,9 +57,15 @@ INCS=		umidi20.h
 SRCS+=		umidi20_jack.c
 LDADD+=		-L${PREFIX}/lib -ljack
 CFLAGS+=	-I${PREFIX}/include
-CFLAGS+=	-DHAVE_JACK
 .else
 SRCS+=		umidi20_jack_dummy.c
+.endif
+
+.if defined(HAVE_COREMIDI)
+SRCS+=		umidi20_coremidi.c
+CFLAGS+=	-I${PREFIX}/include
+.else
+SRCS+=		umidi20_coremidi_dummy.c
 .endif
 
 .if defined(HAVE_DEBUG)

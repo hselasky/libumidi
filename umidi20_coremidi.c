@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011 Hans Petter Selasky <hselasky@FreeBSD.org>
+ * Copyright (c) 2013 Hans Petter Selasky <hselasky@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,11 +24,6 @@
  * SUCH DAMAGE.
  */
 
-/*
- * A few parts of this file has been copied from Edward Tomasz
- * Napierala's jack-keyboard sources.
- */
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,9 +34,7 @@
 #include <err.h>
 #include <sysexits.h>
 
-#include <jack/jack.h>
-#include <jack/midiport.h>
-#include <jack/ringbuffer.h>
+#import <CoreMIDI/CoreMIDI.h>
 
 #include "umidi20.h"
 
@@ -59,9 +52,11 @@ struct umidi20_parse {
 #define	UMIDI20_ST_SYSEX_2   6
 };
 
-struct umidi20_jack {
-	jack_port_t *output_port;
-	jack_port_t *input_port;
+struct umidi20_coremidi {
+	MIDIPortRef output_port;
+	MIDIPortRef input_port;
+	MIDIEndpointRef output_endpoint;
+	MIDIEndpointRef input_endpoint;
 	int	read_fd[2];
 	int	write_fd[2];
 	char   *read_name;
@@ -69,11 +64,12 @@ struct umidi20_jack {
 	struct umidi20_parse parse;
 };
 
-static pthread_mutex_t umidi20_jack_mtx;
-static jack_client_t *umidi20_jack_client;
-static struct umidi20_jack umidi20_jack[UMIDI20_N_DEVICES];
-static int umidi20_jack_init_done;
-static const char *umidi20_jack_name;
+static pthread_mutex_t umidi20_coremidi_mtx;
+static pthread_t umidi20_coremidi_thread;
+static MIDIClientRef umidi20_coremidi_client;
+static struct umidi20_coremidi umidi20_coremidi[UMIDI20_N_DEVICES];
+static int umidi20_coremidi_init_done;
+static const char *umidi20_coremidi_name;
 
 #ifdef HAVE_DEBUG
 #define	DPRINTF(fmt, ...) \
@@ -82,72 +78,48 @@ static const char *umidi20_jack_name;
 #define	DPRINTF(fmt, ...) do { } while (0)
 #endif
 
-static void
-umidi20_jack_lock(void)
+static char *
+umidi20_dup_cfstr(CFStringRef str)
 {
-	pthread_mutex_lock(&umidi20_jack_mtx);
+	char *ptr;
+	CFIndex len = CFStringGetLength(str);
+
+	ptr = malloc(len + 1);
+	if (ptr == NULL)
+		return (NULL);
+	memset(ptr, 0, len + 1);
+	CFStringGetCString(str, ptr, len, kCFStringEncodingMacRoman);
+	return (ptr);
 }
 
 static void
-umidi20_jack_unlock(void)
+umidi20_coremidi_lock(void)
 {
-	pthread_mutex_unlock(&umidi20_jack_mtx);
+	pthread_mutex_lock(&umidi20_coremidi_mtx);
 }
 
 static void
-umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
+umidi20_coremidi_unlock(void)
 {
-	int error;
-	int events;
-	int i;
-	void *buf;
-	jack_midi_event_t event;
+	pthread_mutex_unlock(&umidi20_coremidi_mtx);
+}
 
-	if (puj->input_port == NULL)
-		return;
+static void
+umidi20_read_event(const MIDIPacketList * pktlist, void *refCon, void *connRefCon)
+{
+	struct umidi20_coremidi *puj = refCon;
+	uint32_t n;
 
-	if (jack_port_connected(puj->input_port) < 1) {
-		int fd;
+	umidi20_coremidi_lock();
+	if (puj->write_fd[1] > -1) {
+		const MIDIPacket *packet = &packetList->packet[0];
 
-		umidi20_jack_lock();
-		fd = puj->write_fd[1];
-		puj->write_fd[1] = -1;
-		umidi20_jack_unlock();
-		if (fd > -1) {
-			DPRINTF("Disconnect\n");
-			close(fd);
+		for (n = 0; n != pktlist->numPackets; n++) {
+			write(puj->write_fd[1], packet->data, packet->length);
+			packet = MIDIPacketNext(packet);
 		}
 	}
-	buf = jack_port_get_buffer(puj->input_port, nframes);
-	if (buf == NULL) {
-		DPRINTF("jack_port_get_buffer() failed, "
-		    "cannot receive anything.\n");
-		return;
-	}
-#ifdef JACK_MIDI_NEEDS_NFRAMES
-	events = jack_midi_get_event_count(buf, nframes);
-#else
-	events = jack_midi_get_event_count(buf);
-#endif
-
-	for (i = 0; i < events; i++) {
-#ifdef JACK_MIDI_NEEDS_NFRAMES
-		error = jack_midi_event_get(&event, buf, i, nframes);
-#else
-		error = jack_midi_event_get(&event, buf, i);
-#endif
-		if (error) {
-			DPRINTF("jack_midi_event_get() failed, lost MIDI event.\n");
-			continue;
-		}
-		umidi20_jack_lock();
-		if (puj->write_fd[1] > -1) {
-			if (write(puj->write_fd[1], event.buffer, event.size) != (int)event.size) {
-				DPRINTF("write() failed.\n");
-			}
-		}
-		umidi20_jack_unlock();
-	}
+	umidi20_coremidi_unlock();
 }
 
 static const uint8_t umidi20_cmd_to_len[16] = {
@@ -179,7 +151,7 @@ static const uint8_t umidi20_cmd_to_len[16] = {
  * Else: Command is complete
  */
 static uint8_t
-umidi20_convert_to_usb(struct umidi20_jack *puj, uint8_t cn, uint8_t b)
+umidi20_convert_to_usb(struct umidi20_coremidi *puj, uint8_t cn, uint8_t b)
 {
 	uint8_t p0 = (cn << 4);
 
@@ -304,222 +276,234 @@ umidi20_convert_to_usb(struct umidi20_jack *puj, uint8_t cn, uint8_t b)
 	return (0);
 }
 
-static void
-umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
+static void *
+umidi20_write_process(void *arg)
 {
-	uint8_t *buffer;
+	MIDIPacketList pktList;
+	MIDIPacket *pkt;
 	void *buf;
-	jack_nframes_t t;
 	uint8_t data[1];
 	uint8_t len;
+	int n;
 
-	if (puj->output_port == NULL)
-		return;
-
-	if (jack_port_connected(puj->output_port) < 1) {
-		int fd;
-
+	while (1) {
 		umidi20_jack_lock();
-		fd = puj->read_fd[0];
-		puj->read_fd[0] = -1;
-		umidi20_jack_unlock();
-		if (fd > -1) {
-			DPRINTF("Disconnect\n");
-			close(fd);
-		}
-	}
-	buf = jack_port_get_buffer(puj->output_port, nframes);
-	if (buf == NULL) {
-		DPRINTF("jack_port_get_buffer() failed, cannot "
-		    "send anything.\n");
-		return;
-	}
-#ifdef JACK_MIDI_NEEDS_NFRAMES
-	jack_midi_clear_buffer(buf, nframes);
-#else
-	jack_midi_clear_buffer(buf);
-#endif
+		for (n = 0; n != UMIDI20_N_DEVICES; n++) {
+			struct umidi20_jack *puj = umidi20_coremidi + n;
 
-	t = 0;
-	umidi20_jack_lock();
-	if (puj->read_fd[0] > -1) {
-		while ((t < nframes) &&
-		    (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data))) {
-			if (umidi20_convert_to_usb(puj, 0, data[0])) {
+			if (puj->read_fd[0] > -1) {
+				while (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
+					if (umidi20_convert_to_usb(puj, 0, data[0])) {
+						len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
+						if (len == 0)
+							continue;
 
-				len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
-				if (len == 0)
-					continue;
-#ifdef JACK_MIDI_NEEDS_NFRAMES
-				buffer = jack_midi_event_reserve(buf, t, len, nframes);
-#else
-				buffer = jack_midi_event_reserve(buf, t, len);
-#endif
-				if (buffer == NULL) {
-					DPRINTF("jack_midi_event_reserve() failed, "
-					    "MIDI event lost\n");
-					break;
+						pkt = MIDIPacketListInit(&pktList);
+						pkt = MIDIPacketListAdd(&pktList, sizeof(pktList),
+						    pkt, 0, len, &puj->parse.temp_cmd[1]);
+						MIDIReceived(puj->output_endpoint, &pktlist);
+					}
 				}
-				memcpy(buffer, &puj->parse.temp_cmd[1], len);
-				t++;
 			}
 		}
-	}
-	umidi20_jack_unlock();
-}
+		umidi20_jack_unlock();
 
-static int
-umidi20_process_callback(jack_nframes_t nframes, void *reserved)
-{
-	uint8_t n;
-
-	/*
-	 * Check for impossible condition that actually happened to me,
-	 * caused by some problem between jackd and OSS4.
-	 */
-	if (nframes <= 0) {
-		DPRINTF("Process callback called with nframes = 0\n");
-		return (0);
+		usleep(1000);
 	}
-	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
-		umidi20_read(umidi20_jack + n, nframes);
-		umidi20_write(umidi20_jack + n, nframes);
-	}
-	return (0);
 }
 
 const char **
-umidi20_jack_alloc_inputs(void)
+umidi20_coremidi_alloc_inputs(void)
 {
+	unsigned long n;
+	unsigned long x;
 	const char **ptr;
-	int n;
 
-	if (umidi20_jack_init_done == 0)
+	if (umidi20_coremidi_init_done == 0)
 		return (0);
 
-	ptr = jack_get_ports(umidi20_jack_client, NULL,
-	    JACK_DEFAULT_MIDI_TYPE, JackPortIsInput);
+	n = MIDIGetNumberOfSources();
 
-	if (ptr != NULL) {
-		for (n = 0; ptr[n] != NULL; n++) {
-			if (strstr(ptr[n], umidi20_jack_name) == ptr[n])
-				ptr[n] = "";
-		}
+	ptr = malloc(sizeof(void *) * (n + 1));
+	if (ptr == NULL)
+		return (NULL);
+
+	for (x = 0; x != n; x++) {
+		CFStringRef name;
+		MIDIEndpointRef src = MIDIGetSource(x);
+
+		if (noErr == MIDIObjectGetStringProperty(src,
+		    kMIDIPropertyName, &name))
+			ptr[x] = umidi20_dup_cfstr(name);
+		else
+			ptr[x] = strdup("");
 	}
+	ptr[x] = NULL;
+
 	return (ptr);
 }
 
 const char **
-umidi20_jack_alloc_outputs(void)
+umidi20_coremidi_alloc_outputs(void)
 {
+	unsigned long n;
+	unsigned long x;
 	const char **ptr;
-	int n;
 
-	if (umidi20_jack_init_done == 0)
+	if (umidi20_coremidi_init_done == 0)
 		return (0);
 
-	ptr = jack_get_ports(umidi20_jack_client, NULL,
-	    JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput);
+	n = MIDIGetNumberOfDestinations();
 
-	if (ptr != NULL) {
-		for (n = 0; ptr[n] != NULL; n++) {
-			if (strstr(ptr[n], umidi20_jack_name) == ptr[n])
-				ptr[n] = "";
-		}
+	ptr = malloc(sizeof(void *) * (n + 1));
+	if (ptr == NULL)
+		return (NULL);
+
+	for (x = 0; x != n; x++) {
+		CFStringRef name;
+		MIDIEndpointRef dst = MIDIGetDestination(x);
+
+		if (noErr == MIDIObjectGetStringProperty(dst,
+		    kMIDIPropertyName, &name))
+			ptr[x] = umidi20_dup_cfstr(name);
+		else
+			ptr[x] = strdup("");
 	}
+	ptr[x] = NULL;
+
 	return (ptr);
 }
 
 void
-umidi20_jack_free_inputs(const char **ports)
+umidi20_coremidi_free_inputs(const char **ports)
 {
-	jack_free(ports);
+	unsigned long n;
+
+	if (ports == NULL)
+		return;
+
+	for (n = 0; ports[n] != NULL; n++)
+		free(ports[n]);
+
+	free(ports);
 }
 
 void
-umidi20_jack_free_outputs(const char **ports)
+umidi20_coremidi_free_outputs(const char **ports)
 {
-	jack_free(ports);
+	unsigned long n;
+
+	if (ports == NULL)
+		return;
+
+	for (n = 0; ports[n] != NULL; n++)
+		free(ports[n]);
+
+	free(ports);
 }
 
 int
-umidi20_jack_rx_open(uint8_t n, const char *name)
+umidi20_coremidi_rx_open(uint8_t n, const char *name)
 {
-	struct umidi20_jack *puj;
+	struct umidi20_coremidi *puj;
+	MIDIEndpointRef src = NULL;
+	unsigned long n;
+	unsigned long x;
 	int error;
+	char *ptr;
 
-	if (n >= UMIDI20_N_DEVICES || umidi20_jack_init_done == 0)
+	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
 		return (-1);
 
-	/* don't allow connecting with self */
-	if (strstr(name, umidi20_jack_name) == name)
-		return (-1);
-
-	puj = &umidi20_jack[n];
+	puj = &umidi20_coremidi[n];
 
 	/* check if already opened */
 	if (puj->write_fd[1] > -1 || puj->write_fd[0] > -1)
 		return (-1);
 
-	/* disconnect */
-	error = jack_port_disconnect(umidi20_jack_client, puj->input_port);
-	if (error)
+	n = MIDIGetNumberOfSources();
+	for (x = 0; x != n; x++) {
+		CFStringRef name;
+
+		src = MIDIGetSource(x);
+		if (noErr == MIDIObjectGetStringProperty(src,
+		    kMIDIPropertyName, &name)) {
+			ptr = umidi20_dup_cfstr(name);
+			if (ptr != NULL && strcmp(ptr, name) == 0) {
+				free(ptr);
+				break;
+			}
+			free(ptr);
+		}
+	}
+
+	if (x == n)
 		return (-1);
 
-	/* connect */
-	error = jack_connect(umidi20_jack_client, name,
-	    jack_port_name(puj->input_port));
-	if (error)
-		return (-1);
+	puj->input_endpoint = src;
+
+	MIDIPortConnectSource(puj->input_port, src, NULL);
 
 	/* create looback pipe */
-	umidi20_jack_lock();
+	umidi20_coremidi_lock();
 	error = pipe(puj->write_fd);
 	if (error) {
 		puj->write_fd[0] = -1;
 		puj->write_fd[1] = -1;
 	}
-	umidi20_jack_unlock();
+	umidi20_coremidi_unlock();
 
 	if (error) {
-		jack_port_disconnect(umidi20_jack_client, puj->input_port);
+		MIDIPortDisconnectSource(puj->input_port, src);
 		return (-1);
 	}
 	return (puj->write_fd[0]);
 }
 
 int
-umidi20_jack_tx_open(uint8_t n, const char *name)
+umidi20_coremidi_tx_open(uint8_t n, const char *name)
 {
-	struct umidi20_jack *puj;
+	struct umidi20_coremidi *puj;
+	MIDIEndpointRef dst = NULL;
+	unsigned long n;
+	unsigned long x;
 	int error;
+	char *ptr;
 
-	if (n >= UMIDI20_N_DEVICES || umidi20_jack_init_done == 0)
+	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
 		return (-1);
 
-	/* don't allow connecting with self */
-	if (strstr(name, umidi20_jack_name) == name)
-		return (-1);
-
-	puj = &umidi20_jack[n];
+	puj = &umidi20_coremidi[n];
 
 	/* check if already opened */
 	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1)
 		return (-1);
 
-	/* disconnect */
-	error = jack_port_disconnect(umidi20_jack_client, puj->output_port);
-	if (error)
+	n = MIDIGetNumberOfDestinations();
+	for (x = 0; x != n; x++) {
+		CFStringRef name;
+
+		dst = MIDIGetDestination(x);
+		if (noErr == MIDIObjectGetStringProperty(dst,
+		    kMIDIPropertyName, &name)) {
+			ptr = umidi20_dup_cfstr(name);
+			if (ptr != NULL && strcmp(ptr, name) == 0) {
+				free(ptr);
+				break;
+			}
+			free(ptr);
+		}
+	}
+
+	if (x == n)
 		return (-1);
 
-	/* connect */
-	error = jack_connect(umidi20_jack_client,
-	    jack_port_name(puj->output_port), name);
-	if (error)
-		return (-1);
+	puj->output_endpoint = dst;
+
+	MIDIPortConnectSource(puj->output_port, dst, NULL);
 
 	/* create looback pipe */
-	umidi20_jack_lock();
+	umidi20_coremidi_lock();
 	error = pipe(puj->read_fd);
 	if (error) {
 		puj->read_fd[0] = -1;
@@ -528,112 +512,87 @@ umidi20_jack_tx_open(uint8_t n, const char *name)
 		fcntl(puj->read_fd[0], F_SETFL, (int)O_NONBLOCK);
 		memset(&puj->parse, 0, sizeof(puj->parse));
 	}
-	umidi20_jack_unlock();
+	umidi20_coremidi_unlock();
 
 	if (error) {
-		jack_port_disconnect(umidi20_jack_client, puj->output_port);
+		MIDIPortDisconnectSource(puj->output_port, dst);
 		return (-1);
 	}
 	return (puj->read_fd[1]);
 }
 
 int
-umidi20_jack_rx_close(uint8_t n)
+umidi20_coremidi_rx_close(uint8_t n)
 {
-	struct umidi20_jack *puj;
+	struct umidi20_coremidi *puj;
 
-	if (n >= UMIDI20_N_DEVICES || umidi20_jack_init_done == 0)
+	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
 		return (-1);
 
-	puj = &umidi20_jack[n];
+	puj = &umidi20_coremidi[n];
 
-	jack_port_disconnect(umidi20_jack_client, puj->input_port);
+	MIDIPortDisconnectSource(puj->input_port, puj->input_endpoint);
 
-	umidi20_jack_lock();
+	umidi20_coremidi_lock();
 	close(puj->write_fd[0]);
 	close(puj->write_fd[1]);
 	puj->write_fd[0] = -1;
 	puj->write_fd[1] = -1;
-	umidi20_jack_unlock();
+	umidi20_coremidi_unlock();
 
 	return (0);
 }
 
 int
-umidi20_jack_tx_close(uint8_t n)
+umidi20_coremidi_tx_close(uint8_t n)
 {
-	struct umidi20_jack *puj;
+	struct umidi20_coremidi *puj;
 
-	if (n >= UMIDI20_N_DEVICES || umidi20_jack_init_done == 0)
+	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
 		return (-1);
 
-	puj = &umidi20_jack[n];
+	puj = &umidi20_coremidi[n];
 
-	jack_port_disconnect(umidi20_jack_client, puj->output_port);
+	MIDIPortDisconnectSource(puj->output_port, puj->output_endpoint);
 
-	umidi20_jack_lock();
+	umidi20_coremidi_lock();
 	close(puj->read_fd[0]);
 	close(puj->read_fd[1]);
 	puj->read_fd[0] = -1;
 	puj->read_fd[1] = -1;
-	umidi20_jack_unlock();
+	umidi20_coremidi_unlock();
 
 	return (0);
 }
 
 static void
-umidi20_jack_shutdown(void *arg)
+umidi20_coremidi_notify(const MIDINotification * message, void *refCon)
 {
-	struct umidi20_jack *puj;
-	int n;
 
-	umidi20_jack_lock();
-	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
-		puj = &umidi20_jack[n];
-		if (puj->read_fd[0] > -1) {
-			close(puj->read_fd[0]);
-			puj->read_fd[0] = -1;
-		}
-		if (puj->write_fd[1] > -1) {
-			close(puj->write_fd[1]);
-			puj->write_fd[1] = -1;
-		}
-	}
-	umidi20_jack_init_done = 0;
-	umidi20_jack_unlock();
 }
 
 int
-umidi20_jack_init(const char *name)
+umidi20_coremidi_init(const char *name)
 {
-	struct umidi20_jack *puj;
-	uint8_t n;
-	int error;
+	struct umidi20_coremidi *puj;
 	char devname[64];
+	char *pname;
+	uint8_t n;
 
-	if (name == NULL)
+	umidi20_coremidi_name = strdup(name);
+	if (umidi20_coremidi_name == NULL)
 		return (-1);
 
-	umidi20_jack_name = strdup(name);
-	if (umidi20_jack_name == NULL)
+	pthread_mutex_init(&umidi20_coremidi_mtx, NULL);
+
+	MIDIClientCreate(CFSTR(umidi20_coremidi_name),
+	    umidi20_coremidi_notify, NULL, &umidi20_coremidi_client);
+
+	if (umidi20_coremidi_client == NULL)
 		return (-1);
-
-	pthread_mutex_init(&umidi20_jack_mtx, NULL);
-
-	umidi20_jack_client = jack_client_open(umidi20_jack_name,
-	    JackNoStartServer, NULL);
-	if (umidi20_jack_client == NULL)
-		return (-1);
-
-	error = jack_set_process_callback(umidi20_jack_client,
-	    umidi20_process_callback, 0);
-	if (error)
-		return (-1);
-
-	jack_on_shutdown(umidi20_jack_client, umidi20_jack_shutdown, 0);
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
-		puj = &umidi20_jack[n];
+		puj = &umidi20_coremidi[n];
 		puj->read_fd[0] = -1;
 		puj->read_fd[1] = -1;
 		puj->write_fd[0] = -1;
@@ -641,21 +600,21 @@ umidi20_jack_init(const char *name)
 
 		snprintf(devname, sizeof(devname), "dev%d.TX", (int)n);
 
-		puj->output_port = jack_port_register(
-		    umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
-		    JackPortIsOutput, 0);
+		pname = strdup(devname);
+		MIDIOutputPortCreate(umidi20_coremidi_client, CFSTR(pname), &puj->output_port);
 
 		snprintf(devname, sizeof(devname), "dev%d.RX", (int)n);
 
-		puj->input_port = jack_port_register(
-		    umidi20_jack_client, devname, JACK_DEFAULT_MIDI_TYPE,
-		    JackPortIsInput, 0);
+		pname = strdup(devname);
+		MIDIInputPortCreate(umidi20_coremidi_client, CFSTR(pname), umidi20_read_event,
+		    puj, &puj->input_port);
 	}
 
-	if (jack_activate(umidi20_jack_client))
+	if (pthread_create(&umidi20_coremidi_thread, NULL,
+	    &umidi20_write_process, NULL))
 		return (-1);
 
-	umidi20_jack_init_done = 1;
+	umidi20_coremidi_init_done = 1;
 
 	return (0);
 }
