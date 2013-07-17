@@ -307,7 +307,8 @@ umidi20_write_process(void *arg)
 						pkt = MIDIPacketListInit(&pktList);
 						pkt = MIDIPacketListAdd(&pktList, sizeof(pktList),
 						    pkt, 0, len, &puj->parse.temp_cmd[1]);
-						MIDIReceived(puj->output_endpoint, &pktList);
+						MIDISend(puj->output_port,
+						    puj->output_endpoint, &pktList);
 					}
 				}
 			}
