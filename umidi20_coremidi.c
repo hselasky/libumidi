@@ -287,9 +287,9 @@ umidi20_write_process(void *arg)
 	int n;
 
 	while (1) {
-		umidi20_jack_lock();
+		umidi20_coremidi_lock();
 		for (n = 0; n != UMIDI20_N_DEVICES; n++) {
-			struct umidi20_jack *puj = umidi20_coremidi + n;
+			struct umidi20_coremidi *puj = umidi20_coremidi + n;
 
 			if (puj->read_fd[0] > -1) {
 				while (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
@@ -306,7 +306,7 @@ umidi20_write_process(void *arg)
 				}
 			}
 		}
-		umidi20_jack_unlock();
+		umidi20_coremidi_unlock();
 
 		usleep(1000);
 	}
