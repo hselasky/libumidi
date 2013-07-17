@@ -63,6 +63,7 @@ SRCS+=		umidi20_jack_dummy.c
 
 .if defined(HAVE_COREMIDI)
 SRCS+=		umidi20_coremidi.c
+LDADD+=		-framework CoreMIDI
 CFLAGS+=	-I${PREFIX}/include
 .else
 SRCS+=		umidi20_coremidi_dummy.c
