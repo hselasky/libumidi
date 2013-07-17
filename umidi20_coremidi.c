@@ -92,6 +92,13 @@ umidi20_dup_cfstr(CFStringRef str)
 	return (ptr);
 }
 
+static CFStringRef
+umidi20_create_cfstr(const char *str)
+{
+	return (CFStringCreateWithCString(kCFAllocatorDefault,
+	    str, kCFStringEncodingMacRoman));
+}
+
 static void
 umidi20_coremidi_lock(void)
 {
@@ -112,7 +119,7 @@ umidi20_read_event(const MIDIPacketList * pktlist, void *refCon, void *connRefCo
 
 	umidi20_coremidi_lock();
 	if (puj->write_fd[1] > -1) {
-		const MIDIPacket *packet = &packetList->packet[0];
+		const MIDIPacket *packet = &pktList->packet[0];
 
 		for (n = 0; n != pktlist->numPackets; n++) {
 			write(puj->write_fd[1], packet->data, packet->length);
@@ -301,7 +308,7 @@ umidi20_write_process(void *arg)
 						pkt = MIDIPacketListInit(&pktList);
 						pkt = MIDIPacketListAdd(&pktList, sizeof(pktList),
 						    pkt, 0, len, &puj->parse.temp_cmd[1]);
-						MIDIReceived(puj->output_endpoint, &pktlist);
+						MIDIReceived(puj->output_endpoint, &pktList);
 					}
 				}
 			}
@@ -407,8 +414,8 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 {
 	struct umidi20_coremidi *puj;
 	MIDIEndpointRef src = NULL;
-	unsigned long n;
 	unsigned long x;
+	unsigned long y;
 	int error;
 	char *ptr;
 
@@ -421,8 +428,8 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 	if (puj->write_fd[1] > -1 || puj->write_fd[0] > -1)
 		return (-1);
 
-	n = MIDIGetNumberOfSources();
-	for (x = 0; x != n; x++) {
+	y = MIDIGetNumberOfSources();
+	for (x = 0; x != y; x++) {
 		CFStringRef name;
 
 		src = MIDIGetSource(x);
@@ -437,7 +444,7 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 		}
 	}
 
-	if (x == n)
+	if (x == y)
 		return (-1);
 
 	puj->input_endpoint = src;
@@ -465,8 +472,8 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 {
 	struct umidi20_coremidi *puj;
 	MIDIEndpointRef dst = NULL;
-	unsigned long n;
 	unsigned long x;
+	unsigned long y;
 	int error;
 	char *ptr;
 
@@ -479,8 +486,8 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1)
 		return (-1);
 
-	n = MIDIGetNumberOfDestinations();
-	for (x = 0; x != n; x++) {
+	y = MIDIGetNumberOfDestinations();
+	for (x = 0; x != y; x++) {
 		CFStringRef name;
 
 		dst = MIDIGetDestination(x);
@@ -495,7 +502,7 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 		}
 	}
 
-	if (x == n)
+	if (x == y)
 		return (-1);
 
 	puj->output_endpoint = dst;
@@ -576,7 +583,6 @@ umidi20_coremidi_init(const char *name)
 {
 	struct umidi20_coremidi *puj;
 	char devname[64];
-	char *pname;
 	uint8_t n;
 
 	umidi20_coremidi_name = strdup(name);
@@ -585,7 +591,7 @@ umidi20_coremidi_init(const char *name)
 
 	pthread_mutex_init(&umidi20_coremidi_mtx, NULL);
 
-	MIDIClientCreate(CFSTR(umidi20_coremidi_name),
+	MIDIClientCreate(umidi20_create_cfstr(umidi20_coremidi_name),
 	    umidi20_coremidi_notify, NULL, &umidi20_coremidi_client);
 
 	if (umidi20_coremidi_client == NULL)
@@ -600,13 +606,13 @@ umidi20_coremidi_init(const char *name)
 
 		snprintf(devname, sizeof(devname), "dev%d.TX", (int)n);
 
-		pname = strdup(devname);
-		MIDIOutputPortCreate(umidi20_coremidi_client, CFSTR(pname), &puj->output_port);
+		MIDIOutputPortCreate(umidi20_coremidi_client,
+		    umidi20_create_cfstr(devname), &puj->output_port);
 
 		snprintf(devname, sizeof(devname), "dev%d.RX", (int)n);
 
-		pname = strdup(devname);
-		MIDIInputPortCreate(umidi20_coremidi_client, CFSTR(pname), umidi20_read_event,
+		MIDIInputPortCreate(umidi20_coremidi_client,
+		    umidi20_create_cfstr(devname), umidi20_read_event,
 		    puj, &puj->input_port);
 	}
 
