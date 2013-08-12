@@ -39,6 +39,7 @@
 #ifdef __APPLE__
 #include <mach/mach_time.h>
 #include <sched.h>
+static mach_timebase_info_data_t umidi20_timebase_info;
 #endif
 
 #include "umidi20.h"
@@ -120,7 +121,9 @@ umidi20_init(void)
 	uint32_t x;
 
 	umidi20_mutex_init(&(root_dev.mutex));
-
+#ifdef __APPLE__
+	mach_timebase_info(&umidi20_timebase_info);
+#endif
 	umidi20_gettime(&(root_dev.curr_time));
 
 	root_dev.start_time = root_dev.curr_time;
@@ -1565,7 +1568,8 @@ void
 umidi20_gettime(struct timespec *ts)
 {
 #ifdef __APPLE__
-	uint64_t value = mach_absolute_time();
+	uint64_t value = (mach_absolute_time() *
+	    umidi20_timebase_info.numer) / umidi20_timebase_info.denom;
 	ts->tv_nsec = value % 1000000000ULL;
 	ts->tv_sec = value / 1000000000ULL;
 #else
