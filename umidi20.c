@@ -1507,9 +1507,12 @@ umidi20_convert_to_event(struct umidi20_converter *conv,
 			/* long command begins */
 			umidi20_event_free(conv->p_next);
 			conv->p_next = NULL;
-			conv->pp_next = &(conv->p_next);
+			conv->pp_next = NULL;
 		}
 		if (conv->temp_cmd[0] <= 0x8) {
+			/* accumulate system exclusive messages */
+			if (conv->pp_next == NULL)
+				conv->pp_next = &(conv->p_next);
 			event = umidi20_event_alloc(&(conv->pp_next), flag);
 		} else {
 			event = umidi20_event_alloc(NULL, flag);
@@ -1523,7 +1526,7 @@ umidi20_convert_to_event(struct umidi20_converter *conv,
 		} else if (conv->temp_cmd[0] < 8) {
 			event = conv->p_next;
 			conv->p_next = NULL;
-			conv->pp_next = &(conv->p_next);
+			conv->pp_next = NULL;
 		} else {
 			/* short command */
 		}
