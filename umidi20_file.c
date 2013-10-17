@@ -616,7 +616,31 @@ umidi20_save_file_sub(struct umidi20_song *song, struct midi_file *out)
 					write_variable_length_quantity(out, data_len - 2);
 					write_event(event, out, 1, data_len - 2);
 					break;
-
+				case 0xF1:	/* MIDI time code */
+					midi_write_1(out, 0xF1);
+					midi_write_1(out, event->cmd[2] & 0x7F);
+					break;
+				case 0xF2:	/* MIDI song position */
+					midi_write_1(out, 0xF2);
+					midi_write_1(out, event->cmd[2] & 0x7F);
+					midi_write_1(out, event->cmd[3] & 0x7F);
+					break;
+				case 0xF3:	/* song select */
+					midi_write_1(out, 0xF3);
+					midi_write_1(out, event->cmd[2] & 0x7F);
+					break;
+				case 0xF8:	/* beat */
+					midi_write_1(out, 0xF8);
+					break;
+				case 0xFA:	/* song start */
+					midi_write_1(out, 0xFA);
+					break;
+				case 0xFB:	/* song continue */
+					midi_write_1(out, 0xFB);
+					break;
+				case 0xFC:	/* song stop */
+					midi_write_1(out, 0xFC);
+					break;
 				case 0xFF:	/* Meta Event */
 					midi_write_1(out, 0xFF);
 					midi_write_1(out, event->cmd[2] & 0x7F);
