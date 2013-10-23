@@ -469,13 +469,15 @@ mid_s_pedal(struct mid_data *d, int32_t db, int32_t dm, int32_t da,
 void
 mid_init(struct mid_data *d, struct umidi20_track *track)
 {
+#if 0
 	uint8_t buf[4];
 	uint8_t x;
-
+#endif
 	memset(d, 0, sizeof(*d));
 
 	d->track = track;
 
+#if 0
 	buf[0] = 0xFE;
 
 	for (x = 0; x < 16; x++) {
@@ -491,6 +493,7 @@ mid_init(struct mid_data *d, struct umidi20_track *track)
 		mid_set_channel(d, x);
 		mid_add_raw(d, buf, 3, 2);
 	}
+#endif
 }
 
 void
