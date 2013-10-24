@@ -26,7 +26,7 @@
 # Makefile for Universal MIDI library
 #
 
-VERSION=2.0.9
+VERSION=2.0.10
 
 PREFIX?=	/usr/local
 LOCALBASE?=	/usr/local
