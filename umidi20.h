@@ -475,6 +475,7 @@ extern struct umidi20_track *umidi20_track_alloc(void);
 extern void umidi20_track_free(struct umidi20_track *track);
 extern void umidi20_track_compute_max_min(struct umidi20_track *track);
 extern void umidi20_set_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval);
+extern void umidi20_update_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval, uint8_t do_sync);
 extern void umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg);
 
 /*--------------------------------------------------------------------------*

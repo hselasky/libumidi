@@ -286,30 +286,55 @@ restart:
 
 			/* check if next timeout is valid, else reset */
 
-			if (delta < -1000) {
+			if (delta < -1000 || (uint32_t)delta > entry->ms_interval) {
 				/* reset */
-				entry->timeout_pos = pos + entry->ms_interval;
+				entry->timeout_pos = pos;
 			} else if (delta < 0) {
-
 				/* try to stay sync */
 				while (delta < 0) {
 					/* try to stay sync */
 					entry->timeout_pos += entry->ms_interval;
 					delta += entry->ms_interval;
 				}
-
-			} else if ((uint32_t)delta > entry->ms_interval) {
-				/* reset */
-				entry->timeout_pos = pos + entry->ms_interval;
+				entry->timeout_pos -= entry->ms_interval;
 			}
 			entry->pending = 1;
 			pthread_mutex_unlock(&(root_dev.mutex));
 			(entry->fn) (entry->arg);
 			pthread_mutex_lock(&(root_dev.mutex));
 			entry->pending = 0;
+			/* allow callback to update the interval */
+			entry->timeout_pos += entry->ms_interval;
 			goto restart;
 		}
 	}
+}
+
+void
+umidi20_update_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval, uint8_t do_sync)
+{
+	struct umidi20_timer_entry *entry;
+
+	/* check for invalid interval */
+	if (ms_interval == 0)
+		return;
+	/* check for too big interval */
+	if (ms_interval > 65535)
+		ms_interval = 65535;
+
+	pthread_mutex_lock(&(root_dev.mutex));
+
+	TAILQ_FOREACH(entry, &root_dev.timers, entry) {
+		if ((entry->fn == fn) && (entry->arg == arg)) {
+			break;
+		}
+	}
+	if (entry != NULL) {
+		entry->ms_interval = ms_interval;
+		if (do_sync)
+			entry->timeout_pos = root_dev.curr_position;
+	}
+	pthread_mutex_unlock(&(root_dev.mutex));
 }
 
 void
