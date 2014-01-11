@@ -30,82 +30,6 @@
 #include "umidi20.h"
 
 /*
- * Instruments (Yamaha P-140)
- * ==========================
- *
- * Grand piano 1 : 122 1
- * Grand piano 2 : 112 1
- * Grand piano 3 : 123 1
- * Piano & strings : 125 1
- * Electric piano 1 : 122 6
- * Electric piano 2 : 122 5
- * Electric piano 3 : 123 6
- * Church Organ : 123 20
- * Jazz Organ : 122 17
- * Strings : 122 49
- * Harpsichord : 122 7
- * E.Clavichord : 122 8
- * Vibraphone : 122 12
- *
- * Wood Bass : 122 33
- * Bass & cymbal : 124 33
- * E.Bass 1 : 122 34
- * E.Bass 2 : 122 36
- *
- * Instruments on channel 10
- * =========================
- *
- * 35 Bass Drum 2
- * 36 Bass Drum 1
- * 37 Side Stick
- * 38 Snare Drum 1
- * 39 Hand Clap
- * 40 Snare Drum 2
- * 41 Low Tom 2
- * 42 Closed Hi-hat
- * 43 Low Tom 1
- * 44 Pedal Hi-hat
- * 45 Mid Tom 2
- * 46 Open Hi-hat
- * 47 Mid Tom 1
- * 48 High Tom 2
- * 49 Crash Cymbal 1
- * 50 High Tom 1
- * 51 Ride Cymbal 1
- * 52 Chinese Cymbal
- * 53 Ride Bell
- * 54 Tambourine
- * 55 Splash Cymbal
- * 56 Cowbell
- * 57 Crash Cymbal 2
- * 58 Vibra Slap
- *
- * 59 Ride Cymbal 2
- * 60 High Bongo
- * 61 Low Bongo
- * 62 Mute High Conga
- * 63 Open High Conga
- * 64 Low Conga
- * 65 High Timbale
- * 66 Low Timbale
- * 67 High Agogo
- * 68 Low Agogo
- * 69 Cabasa
- * 70 Maracas
- * 71 Short Whistle
- * 72 Long Whistle
- * 73 Short Guiro
- * 74 Long Guiro
- * 75 Claves
- * 76 High Wood Block
- * 77 Low Wood Block
- * 78 Mute Cuica
- * 79 Open Cuica
- * 80 Mute Triangle
- * 81 Open Triangle
- */
-
-/*
  * This file implements simple MIDI music generator functions.
  *
  * Recommended software synths:
@@ -289,8 +213,15 @@ mid_add_raw(struct mid_data *d, const uint8_t *buf,
 		event->cmd[1] |= (d->channel & 0xF);
 
 		if (d->cc_enabled) {
+			/*
+			 * Need to lock the root device before adding
+			 * entries to the play queue:
+			 */
+			pthread_mutex_lock(&(root_dev.mutex));
 			umidi20_event_queue_insert(&(root_dev.play[d->cc_device_no].queue),
 			    event, UMIDI20_CACHE_INPUT);
+			pthread_mutex_unlock(&(root_dev.mutex));
+
 		} else {
 			umidi20_event_queue_insert(&d->track->queue,
 			    event, UMIDI20_CACHE_INPUT);
