@@ -320,10 +320,11 @@ umidi20_write_process(void *arg)
 }
 
 const char **
-umidi20_coremidi_alloc_inputs(void)
+umidi20_coremidi_alloc_outputs(void)
 {
 	unsigned long n;
 	unsigned long x;
+	unsigned long z;
 	const char **ptr;
 
 	if (umidi20_coremidi_init_done == 0)
@@ -335,26 +336,35 @@ umidi20_coremidi_alloc_inputs(void)
 	if (ptr == NULL)
 		return (NULL);
 
-	for (x = 0; x != n; x++) {
+	for (z = x = 0; x != n; x++) {
+		unsigned long y;
 		CFStringRef name;
 		MIDIEndpointRef src = MIDIGetSource(x);
 
+		if (src == NULL)
+			continue;
+		for (y = 0; y != UMIDI20_N_DEVICES; y++) {
+			if (umidi20_coremidi[y].output_port == src)
+				break;
+		}
+		if (y != UMIDI20_N_DEVICES)
+			continue;
+
 		if (noErr == MIDIObjectGetStringProperty(src,
 		    kMIDIPropertyName, &name))
-			ptr[x] = umidi20_dup_cfstr(name);
-		else
-			ptr[x] = strdup("");
+			ptr[z++] = umidi20_dup_cfstr(name);
 	}
-	ptr[x] = NULL;
+	ptr[z] = NULL;
 
 	return (ptr);
 }
 
 const char **
-umidi20_coremidi_alloc_outputs(void)
+umidi20_coremidi_alloc_inputs(void)
 {
 	unsigned long n;
 	unsigned long x;
+	unsigned long z;
 	const char **ptr;
 
 	if (umidi20_coremidi_init_done == 0)
@@ -366,23 +376,31 @@ umidi20_coremidi_alloc_outputs(void)
 	if (ptr == NULL)
 		return (NULL);
 
-	for (x = 0; x != n; x++) {
+	for (z = x = 0; x != n; x++) {
+		unsigned long y;
 		CFStringRef name;
 		MIDIEndpointRef dst = MIDIGetDestination(x);
 
+		if (dst == NULL)
+			continue;
+		for (y = 0; y != UMIDI20_N_DEVICES; y++) {
+			if (umidi20_coremidi[y].input_port == dst)
+				break;
+		}
+		if (y != UMIDI20_N_DEVICES)
+			continue;
+
 		if (noErr == MIDIObjectGetStringProperty(dst,
 		    kMIDIPropertyName, &name))
-			ptr[x] = umidi20_dup_cfstr(name);
-		else
-			ptr[x] = strdup("");
+			ptr[z++] = umidi20_dup_cfstr(name);
 	}
-	ptr[x] = NULL;
+	ptr[z] = NULL;
 
 	return (ptr);
 }
 
 void
-umidi20_coremidi_free_inputs(const char **ports)
+umidi20_coremidi_free_outputs(const char **ports)
 {
 	unsigned long n;
 
@@ -396,7 +414,7 @@ umidi20_coremidi_free_inputs(const char **ports)
 }
 
 void
-umidi20_coremidi_free_outputs(const char **ports)
+umidi20_coremidi_free_inputs(const char **ports)
 {
 	unsigned long n;
 
@@ -573,9 +591,8 @@ umidi20_coremidi_tx_close(uint8_t n)
 }
 
 static void
-umidi20_coremidi_notify(const MIDINotification * message, void *refCon)
+umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
 {
-
 }
 
 int
@@ -604,12 +621,12 @@ umidi20_coremidi_init(const char *name)
 		puj->write_fd[0] = -1;
 		puj->write_fd[1] = -1;
 
-		snprintf(devname, sizeof(devname), "dev%d.TX", (int)n);
+		snprintf(devname, sizeof(devname), "midipp.dev%d.TX", (int)n);
 
 		MIDIOutputPortCreate(umidi20_coremidi_client,
 		    umidi20_create_cfstr(devname), &puj->output_port);
 
-		snprintf(devname, sizeof(devname), "dev%d.RX", (int)n);
+		snprintf(devname, sizeof(devname), "midipp.dev%d.RX", (int)n);
 
 		MIDIInputPortCreate(umidi20_coremidi_client,
 		    umidi20_create_cfstr(devname), umidi20_read_event,
