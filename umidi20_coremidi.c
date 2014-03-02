@@ -319,13 +319,46 @@ umidi20_write_process(void *arg)
 	}
 }
 
+static void
+umidi20_coremidi_uniq_inputs(char **ptr)
+{
+	unsigned long x;
+	unsigned long y;
+	unsigned long z;
+	unsigned long n;
+	const char *pstr;
+
+	/* remove any hashes from device names */
+	for (n = 0; ptr[n]; n++) {
+		pstr = strchr(ptr[n], '#');
+		if (pstr != NULL)
+			*pstr = 0;
+	}
+
+	/* make all device names uniqe */
+	for (x = 0; x != n; x++) {
+		for (z = 0, y = x + 1; y != n; y++) {
+			if (strcmp(ptr[x], ptr[y]) == 0) {
+				int s = strlen(pstr) + 16;
+				pstr = ptr[y];
+				ptr[y] = malloc(s);
+				if (ptr[y] == NULL)
+					return;
+				z++;
+				snprintf(ptr[y], s, "%s#%d", pstr, z);
+				free(pstr);
+			}
+		}
+	}
+}
+
 const char **
 umidi20_coremidi_alloc_outputs(void)
 {
 	unsigned long n;
 	unsigned long x;
 	unsigned long z;
-	const char **ptr;
+	char **ptr;
 
 	if (umidi20_coremidi_init_done == 0)
 		return (0);
@@ -356,6 +389,8 @@ umidi20_coremidi_alloc_outputs(void)
 	}
 	ptr[z] = NULL;
 
+	umidi20_coremidi_uniq_inputs(ptr);
+
 	return (ptr);
 }
 
@@ -365,7 +400,7 @@ umidi20_coremidi_alloc_inputs(void)
 	unsigned long n;
 	unsigned long x;
 	unsigned long z;
-	const char **ptr;
+	char **ptr;
 
 	if (umidi20_coremidi_init_done == 0)
 		return (0);
@@ -395,6 +430,8 @@ umidi20_coremidi_alloc_inputs(void)
 			ptr[z++] = umidi20_dup_cfstr(name);
 	}
 	ptr[z] = NULL;
+
+	umidi20_coremidi_uniq_inputs(ptr);
 
 	return (ptr);
 }
@@ -427,6 +464,49 @@ umidi20_coremidi_free_inputs(const char **ports)
 	free(ports);
 }
 
+static int
+umidi20_coremidi_compare_dev_string(CFStringRef str, const char *name, int *pidx)
+{
+	char *ptr;
+	char *tmp;
+	char *cpy;
+	int which;
+
+	ptr = umidi20_dup_cfstr(str);
+	if (ptr == NULL)
+		return (0);
+
+	tmp = strchr(ptr, '#');
+	if (tmp != NULL)
+		*tmp = 0;
+
+	cpy = strdup(name);
+	if (cpy == NULL) {
+		free(ptr);
+		return (0);
+	}
+	tmp = strchr(cpy, '#');
+	if (tmp != NULL) {
+		which = atoi(tmp + 1);
+		*tmp = 0;
+	} else {
+		which = 0;
+	}
+
+	if (strcmp(ptr, cpy) == 0) {
+		if (*pidx == which) {
+			(*pidx)++;
+			free(ptr);
+			free(cpy);
+			return (1);
+		}
+		(*pidx)++;
+	}
+	free(ptr);
+	free(cpy);
+	return (0);
+}
+
 int
 umidi20_coremidi_rx_open(uint8_t n, const char *name)
 {
@@ -435,7 +515,7 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 	unsigned long x;
 	unsigned long y;
 	int error;
-	char *ptr;
+	int index = 0;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
 		return (-1);
@@ -453,12 +533,8 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 		src = MIDIGetSource(x);
 		if (noErr == MIDIObjectGetStringProperty(src,
 		    kMIDIPropertyName, &str)) {
-			ptr = umidi20_dup_cfstr(str);
-			if (ptr != NULL && strcmp(ptr, name) == 0) {
-				free(ptr);
+			if (umidi20_coremidi_compare_dev_string(str, name, &index))
 				break;
-			}
-			free(ptr);
 		}
 	}
 
@@ -493,7 +569,6 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 	unsigned long x;
 	unsigned long y;
 	int error;
-	char *ptr;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
 		return (-1);
@@ -511,12 +586,8 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 		dst = MIDIGetDestination(x);
 		if (noErr == MIDIObjectGetStringProperty(dst,
 		    kMIDIPropertyName, &str)) {
-			ptr = umidi20_dup_cfstr(str);
-			if (ptr != NULL && strcmp(ptr, name) == 0) {
-				free(ptr);
+			if (umidi20_coremidi_compare_dev_string(str, name, &index))
 				break;
-			}
-			free(ptr);
 		}
 	}
 
