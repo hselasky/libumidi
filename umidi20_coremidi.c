@@ -326,7 +326,7 @@ umidi20_coremidi_uniq_inputs(char **ptr)
 	unsigned long y;
 	unsigned long z;
 	unsigned long n;
-	const char *pstr;
+	char *pstr;
 
 	/* remove any hashes from device names */
 	for (n = 0; ptr[n]; n++) {
