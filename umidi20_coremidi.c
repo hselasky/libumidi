@@ -569,6 +569,7 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 	unsigned long x;
 	unsigned long y;
 	int error;
+	int index = 0;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
 		return (-1);
