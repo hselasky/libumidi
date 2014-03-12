@@ -339,13 +339,13 @@ umidi20_coremidi_uniq_inputs(char **ptr)
 	for (x = 0; x != n; x++) {
 		for (z = 0, y = x + 1; y != n; y++) {
 			if (strcmp(ptr[x], ptr[y]) == 0) {
-				int s = strlen(ptr[y]) + 16;
+				int s = (int)(strlen(ptr[y]) + 16);
 				pstr = ptr[y];
 				ptr[y] = malloc(s);
 				if (ptr[y] == NULL)
 					return;
 				z++;
-				snprintf(ptr[y], s, "%s#%d", pstr, z);
+				snprintf(ptr[y], s, "%s#%d", pstr, (int)z);
 				free(pstr);
 			}
 		}
