@@ -342,8 +342,10 @@ umidi20_coremidi_uniq_inputs(char **ptr)
 				size_t s = strlen(ptr[y]) + 16;
 				pstr = ptr[y];
 				ptr[y] = malloc(s);
-				if (ptr[y] == NULL)
+				if (ptr[y] == NULL) {
+					ptr[y] = pstr;
 					return;
+				}
 				z++;
 				snprintf(ptr[y], s, "%s#%d", pstr, (int)z);
 				free(pstr);
