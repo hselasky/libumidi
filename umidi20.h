@@ -75,6 +75,8 @@ enum {
 #define	UMIDI20_WHAT_PROGRAM_VALUE    0x0040
 #define	UMIDI20_WHAT_CHANNEL_PRESSURE 0x0080
 #define	UMIDI20_WHAT_PITCH_BEND       0x0100
+#define	UMIDI20_WHAT_BEAT_EVENT	      0x0200
+#define	UMIDI20_WHAT_SONG_EVENT	      0x0400
 
 struct timespec;
 struct umidi20_event;

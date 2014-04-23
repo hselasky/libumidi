@@ -829,6 +829,21 @@ umidi20_event_get_what(struct umidi20_event *event)
 	case 0xE:
 		return (UMIDI20_WHAT_CHANNEL |
 		    UMIDI20_WHAT_PITCH_BEND);
+	case 0xF:
+		switch (event->cmd[1]) {
+		case 0xF8:
+			return (UMIDI20_WHAT_BEAT_EVENT);
+		case 0xF1:
+		case 0xF2:
+		case 0xF3:
+		case 0xFA:
+		case 0xFB:
+		case 0xFC:
+			return (UMIDI20_WHAT_SONG_EVENT);
+		default:
+			break;
+		}
+		break;
 	default:
 		break;
 	}
