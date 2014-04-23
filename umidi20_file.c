@@ -419,17 +419,28 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const uint8_t *ptr, uint32_t len)
 					switch (status) {
 					case 0xF1:	/* MIDI time code */
 					case 0xF3:	/* song select */
-						midi_read_1(in);
-						break;
+						temp[1] = midi_read_1(in) & 0x7F;
 
+						event = umidi20_event_from_data(temp, 2, flag);
+						if (event == NULL)
+							goto error;
+						break;
 					case 0xF2:	/* song position pointer */
-						midi_read_1(in);
-						midi_read_1(in);
-						break;
+						temp[1] = midi_read_1(in) & 0x7F;
+						temp[2] = midi_read_1(in) & 0x7F;
 
-					case 0xF6:	/* tune request */
+						event = umidi20_event_from_data(temp, 3, flag);
+						if (event == NULL)
+							goto error;
 						break;
-
+					case 0xF8:	/* beat */
+					case 0xFA:	/* song start */
+					case 0xFB:	/* song continue */
+					case 0xFC:	/* song stop */
+						event = umidi20_event_from_data(temp, 1, flag);
+						if (event == NULL)
+							goto error;
+						break;
 					case 0xF0:	/* System Exclusive
 							 * Begin */
 					case 0xF7:	/* System Exclusive End */
@@ -448,7 +459,6 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const uint8_t *ptr, uint32_t len)
 						if (event == NULL)
 							goto error;
 						break;
-
 					case 0xFF:
 						temp[1] = midi_read_1(in) & 0x7F;
 						data_len = read_variable_length_quantity(in);
@@ -484,7 +494,11 @@ umidi20_load_file(pthread_mutex_t *p_mtx, const uint8_t *ptr, uint32_t len)
 								goto error;
 						}
 						break;
+					default:
+						break;
 					}
+					break;
+				default:
 					break;
 				}
 
@@ -580,12 +594,18 @@ umidi20_save_file_sub(struct umidi20_song *song, struct midi_file *out)
 		previous_tick = 0;
 
 		UMIDI20_QUEUE_FOREACH_SAFE(event, &(track->queue), event_next) {
-
-			if (((event->cmd[1] & 0xF0) == 0xF0) &&
-			    (event->cmd[1] != 0xFF) &&
-			    (event->cmd[1] != 0xF0)) {
+			switch (event->cmd[1]) {
+			case 0xF4:
+			case 0xF5:
+			case 0xF6:
+			case 0xF7:
+			case 0xF9:
+			case 0xFD:
+			case 0xFE:
 				/* ignore commands */
 				continue;
+			default:
+				break;
 			}
 			tick = event->tick;
 			write_variable_length_quantity(out, tick - previous_tick);
@@ -607,7 +627,6 @@ umidi20_save_file_sub(struct umidi20_song *song, struct midi_file *out)
 				midi_write_1(out, event->cmd[1]);
 				midi_write_1(out, event->cmd[2] & 0x7F);
 				break;
-
 			case 0xF:
 				switch (event->cmd[1]) {
 				case 0xF0:	/* System Exclusive Begin */
