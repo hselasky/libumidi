@@ -96,6 +96,6 @@ package:
 
 	rm -rf temp.tar
 
-	tar -jcvf libumidi-${VERSION}.tar.bz2 libumidi-${VERSION}
+	tar --uid=0 --gid=0 -jcvf libumidi-${VERSION}.tar.bz2 libumidi-${VERSION}
 
 .include <bsd.lib.mk>
