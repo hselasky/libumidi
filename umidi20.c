@@ -438,7 +438,7 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 	 * low, even if not recording. A length of zero
 	 * usually means end of file.
 	 */
-	if ((len = umidi20_read(dev->file_no, cmd, sizeof(cmd))) <= 0) {
+	if ((len = read(dev->file_no, cmd, sizeof(cmd))) <= 0) {
 		if (len == 0)
 			dev->update = 1;
 		else if (errno != EWOULDBLOCK)
@@ -541,7 +541,7 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 					/* try to write data */
 
-					err = umidi20_write(dev->file_no, event->cmd + 1, len);
+					err = write(dev->file_no, event->cmd + 1, len);
 					if ((err <= 0) && (errno != EWOULDBLOCK)) {
 						/* try to re-open the device */
 						dev->update = 1;
@@ -587,7 +587,7 @@ umidi20_watchdog_files(void *arg)
 				if (file_no > 2) {
 					switch (dev->enabled_cfg_last) {
 					case UMIDI20_ENABLED_CFG_DEV:
-						umidi20_close(file_no);
+						close(file_no);
 						break;
 					case UMIDI20_ENABLED_CFG_JACK:
 						umidi20_jack_tx_close(x);
@@ -631,7 +631,7 @@ umidi20_watchdog_files(void *arg)
 				if (file_no > 2) {
 					switch (dev->enabled_cfg_last) {
 					case UMIDI20_ENABLED_CFG_DEV:
-						umidi20_close(file_no);
+						close(file_no);
 						break;
 					case UMIDI20_ENABLED_CFG_JACK:
 						umidi20_jack_rx_close(x);
@@ -1682,7 +1682,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[0] = 0xB0 | y;
 		buf[1] = 0x78;
 		buf[2] = 0;
-		while (umidi20_write(play_fd, buf, 3) < 0 &&
+		while (write(play_fd, buf, 3) < 0 &&
 		    errno == EWOULDBLOCK && timeout != 0) {
 			usleep(10);
 			timeout--;
@@ -1694,7 +1694,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[0] = 0xB0 | y;
 		buf[1] = 0x40;
 		buf[2] = 0;
-		while (umidi20_write(play_fd, buf, 3) < 0 &&
+		while (write(play_fd, buf, 3) < 0 &&
 		    errno == EWOULDBLOCK && timeout != 0) {
 			usleep(10);
 			timeout--;
@@ -2544,29 +2544,4 @@ umidi20_pipe(int fd[2])
 		fd[1] = -1;
 	}
 	return (retval);
-}
-
-int
-umidi20_read(int fd, void *buf, unsigned size)
-{
-	/* Ensure we don't get SIGPIPE when writing to pipes */ 
-	signal(SIGPIPE, SIG_IGN);
-	return (read(fd, buf, size));
-}
-
-
-int
-umidi20_write(int fd, const void *buf, unsigned size)
-{
-	/* Ensure we don't get SIGPIPE when writing to pipes */ 
-	signal(SIGPIPE, SIG_IGN);
-	return (write(fd, buf, size));
-}
-
-int
-umidi20_close(int fd)
-{
-	/* Ensure we don't get SIGPIPE when closing pipes */ 
-	signal(SIGPIPE, SIG_IGN);
-	return (close(fd));
 }

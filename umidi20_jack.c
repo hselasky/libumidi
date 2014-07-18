@@ -115,7 +115,7 @@ umidi20_jack_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 		umidi20_jack_unlock();
 		if (fd > -1) {
 			DPRINTF("Disconnect\n");
-			umidi20_close(fd);
+			close(fd);
 		}
 	}
 	buf = jack_port_get_buffer(puj->input_port, nframes);
@@ -142,7 +142,7 @@ umidi20_jack_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 		}
 		umidi20_jack_lock();
 		if (puj->write_fd[1] > -1) {
-			if (umidi20_write(puj->write_fd[1], event.buffer, event.size) != (int)event.size) {
+			if (write(puj->write_fd[1], event.buffer, event.size) != (int)event.size) {
 				DPRINTF("write() failed.\n");
 			}
 		}
@@ -325,7 +325,7 @@ umidi20_jack_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 		umidi20_jack_unlock();
 		if (fd > -1) {
 			DPRINTF("Disconnect\n");
-			umidi20_close(fd);
+			close(fd);
 		}
 	}
 	buf = jack_port_get_buffer(puj->output_port, nframes);
@@ -344,7 +344,7 @@ umidi20_jack_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 	umidi20_jack_lock();
 	if (puj->read_fd[0] > -1) {
 		while ((t < nframes) &&
-		    (umidi20_read(puj->read_fd[0], data, sizeof(data)) == sizeof(data))) {
+		    (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data))) {
 			if (umidi20_convert_to_usb(puj, 0, data[0])) {
 
 				len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
@@ -543,8 +543,8 @@ umidi20_jack_rx_close(uint8_t n)
 	jack_port_disconnect(umidi20_jack_client, puj->input_port);
 
 	umidi20_jack_lock();
-	umidi20_close(puj->write_fd[0]);
-	umidi20_close(puj->write_fd[1]);
+	close(puj->write_fd[0]);
+	close(puj->write_fd[1]);
 	puj->write_fd[0] = -1;
 	puj->write_fd[1] = -1;
 	umidi20_jack_unlock();
@@ -565,8 +565,8 @@ umidi20_jack_tx_close(uint8_t n)
 	jack_port_disconnect(umidi20_jack_client, puj->output_port);
 
 	umidi20_jack_lock();
-	umidi20_close(puj->read_fd[0]);
-	umidi20_close(puj->read_fd[1]);
+	close(puj->read_fd[0]);
+	close(puj->read_fd[1]);
 	puj->read_fd[0] = -1;
 	puj->read_fd[1] = -1;
 	umidi20_jack_unlock();
@@ -584,11 +584,11 @@ umidi20_jack_shutdown(void *arg)
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 		puj = &umidi20_jack[n];
 		if (puj->read_fd[0] > -1) {
-			umidi20_close(puj->read_fd[0]);
+			close(puj->read_fd[0]);
 			puj->read_fd[0] = -1;
 		}
 		if (puj->write_fd[1] > -1) {
-			umidi20_close(puj->write_fd[1]);
+			close(puj->write_fd[1]);
 			puj->write_fd[1] = -1;
 		}
 	}

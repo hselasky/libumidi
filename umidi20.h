@@ -480,9 +480,6 @@ extern void umidi20_set_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t 
 extern void umidi20_update_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval, uint8_t do_sync);
 extern void umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg);
 extern int umidi20_pipe(int [2]);
-extern int umidi20_read(int, void *, unsigned);
-extern int umidi20_write(int, const void *, unsigned);
-extern int umidi20_close(int);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_file.c"

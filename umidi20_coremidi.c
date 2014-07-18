@@ -122,7 +122,7 @@ umidi20_read_event(const MIDIPacketList * pktList, void *refCon, void *connRefCo
 		const MIDIPacket *packet = &pktList->packet[0];
 
 		for (n = 0; n != pktList->numPackets; n++) {
-			umidi20_write(puj->write_fd[1], packet->data, packet->length);
+			write(puj->write_fd[1], packet->data, packet->length);
 			packet = MIDIPacketNext(packet);
 		}
 	}
@@ -298,7 +298,7 @@ umidi20_write_process(void *arg)
 			struct umidi20_coremidi *puj = umidi20_coremidi + n;
 
 			if (puj->read_fd[0] > -1) {
-				while (umidi20_read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
+				while (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
 					if (umidi20_convert_to_usb(puj, 0, data[0])) {
 						len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
 						if (len == 0)
@@ -626,8 +626,8 @@ umidi20_coremidi_rx_close(uint8_t n)
 	MIDIPortDisconnectSource(puj->input_port, puj->input_endpoint);
 
 	umidi20_coremidi_lock();
-	umidi20_close(puj->write_fd[0]);
-	umidi20_close(puj->write_fd[1]);
+	close(puj->write_fd[0]);
+	close(puj->write_fd[1]);
 	puj->write_fd[0] = -1;
 	puj->write_fd[1] = -1;
 	umidi20_coremidi_unlock();
@@ -648,8 +648,8 @@ umidi20_coremidi_tx_close(uint8_t n)
 	MIDIPortDisconnectSource(puj->output_port, puj->output_endpoint);
 
 	umidi20_coremidi_lock();
-	umidi20_close(puj->read_fd[0]);
-	umidi20_close(puj->read_fd[1]);
+	close(puj->read_fd[0]);
+	close(puj->read_fd[1]);
 	puj->read_fd[0] = -1;
 	puj->read_fd[1] = -1;
 	umidi20_coremidi_unlock();
@@ -683,7 +683,7 @@ umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
 		}
 		if (x == y) {
 			if (puj->write_fd[1] > -1) {
-				umidi20_close(puj->write_fd[1]);
+				close(puj->write_fd[1]);
 				puj->write_fd[1] = -1;
 				DPRINTF("Closed receiver %d\n", n);
 			}
@@ -696,7 +696,7 @@ umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
 		}
 		if (x == z) {         
 			if (puj->read_fd[0] > -1) {
-				umidi20_close(puj->read_fd[0]);
+				close(puj->read_fd[0]);
 				puj->read_fd[0] = -1;
 				DPRINTF("Closed transmitter %d\n", n);
 			}
