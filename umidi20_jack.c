@@ -95,7 +95,7 @@ umidi20_jack_unlock(void)
 }
 
 static void
-umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
+umidi20_jack_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 {
 	int error;
 	int events;
@@ -115,7 +115,7 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 		umidi20_jack_unlock();
 		if (fd > -1) {
 			DPRINTF("Disconnect\n");
-			close(fd);
+			umidi20_close(fd);
 		}
 	}
 	buf = jack_port_get_buffer(puj->input_port, nframes);
@@ -142,7 +142,7 @@ umidi20_write(struct umidi20_jack *puj, jack_nframes_t nframes)
 		}
 		umidi20_jack_lock();
 		if (puj->write_fd[1] > -1) {
-			if (write(puj->write_fd[1], event.buffer, event.size) != (int)event.size) {
+			if (umidi20_write(puj->write_fd[1], event.buffer, event.size) != (int)event.size) {
 				DPRINTF("write() failed.\n");
 			}
 		}
@@ -305,7 +305,7 @@ umidi20_convert_to_usb(struct umidi20_jack *puj, uint8_t cn, uint8_t b)
 }
 
 static void
-umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
+umidi20_jack_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 {
 	uint8_t *buffer;
 	void *buf;
@@ -325,7 +325,7 @@ umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 		umidi20_jack_unlock();
 		if (fd > -1) {
 			DPRINTF("Disconnect\n");
-			close(fd);
+			umidi20_close(fd);
 		}
 	}
 	buf = jack_port_get_buffer(puj->output_port, nframes);
@@ -344,7 +344,7 @@ umidi20_read(struct umidi20_jack *puj, jack_nframes_t nframes)
 	umidi20_jack_lock();
 	if (puj->read_fd[0] > -1) {
 		while ((t < nframes) &&
-		    (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data))) {
+		    (umidi20_read(puj->read_fd[0], data, sizeof(data)) == sizeof(data))) {
 			if (umidi20_convert_to_usb(puj, 0, data[0])) {
 
 				len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
@@ -382,8 +382,8 @@ umidi20_process_callback(jack_nframes_t nframes, void *reserved)
 		return (0);
 	}
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
-		umidi20_read(umidi20_jack + n, nframes);
-		umidi20_write(umidi20_jack + n, nframes);
+		umidi20_jack_read(umidi20_jack + n, nframes);
+		umidi20_jack_write(umidi20_jack + n, nframes);
 	}
 	return (0);
 }
@@ -474,11 +474,7 @@ umidi20_jack_rx_open(uint8_t n, const char *name)
 
 	/* create looback pipe */
 	umidi20_jack_lock();
-	error = pipe(puj->write_fd);
-	if (error) {
-		puj->write_fd[0] = -1;
-		puj->write_fd[1] = -1;
-	}
+	error = umidi20_pipe(puj->write_fd);
 	umidi20_jack_unlock();
 
 	if (error) {
@@ -520,11 +516,8 @@ umidi20_jack_tx_open(uint8_t n, const char *name)
 
 	/* create looback pipe */
 	umidi20_jack_lock();
-	error = pipe(puj->read_fd);
-	if (error) {
-		puj->read_fd[0] = -1;
-		puj->read_fd[1] = -1;
-	} else {
+	error = umidi20_pipe(puj->read_fd);
+	if (error == 0) {
 		fcntl(puj->read_fd[0], F_SETFL, (int)O_NONBLOCK);
 		memset(&puj->parse, 0, sizeof(puj->parse));
 	}
@@ -550,8 +543,8 @@ umidi20_jack_rx_close(uint8_t n)
 	jack_port_disconnect(umidi20_jack_client, puj->input_port);
 
 	umidi20_jack_lock();
-	close(puj->write_fd[0]);
-	close(puj->write_fd[1]);
+	umidi20_close(puj->write_fd[0]);
+	umidi20_close(puj->write_fd[1]);
 	puj->write_fd[0] = -1;
 	puj->write_fd[1] = -1;
 	umidi20_jack_unlock();
@@ -572,8 +565,8 @@ umidi20_jack_tx_close(uint8_t n)
 	jack_port_disconnect(umidi20_jack_client, puj->output_port);
 
 	umidi20_jack_lock();
-	close(puj->read_fd[0]);
-	close(puj->read_fd[1]);
+	umidi20_close(puj->read_fd[0]);
+	umidi20_close(puj->read_fd[1]);
 	puj->read_fd[0] = -1;
 	puj->read_fd[1] = -1;
 	umidi20_jack_unlock();
@@ -591,11 +584,11 @@ umidi20_jack_shutdown(void *arg)
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 		puj = &umidi20_jack[n];
 		if (puj->read_fd[0] > -1) {
-			close(puj->read_fd[0]);
+			umidi20_close(puj->read_fd[0]);
 			puj->read_fd[0] = -1;
 		}
 		if (puj->write_fd[1] > -1) {
-			close(puj->write_fd[1]);
+			umidi20_close(puj->write_fd[1]);
 			puj->write_fd[1] = -1;
 		}
 	}
