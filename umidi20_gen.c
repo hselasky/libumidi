@@ -96,22 +96,36 @@ mid_sort(uint8_t *pk, uint8_t nk)
 void
 mid_trans(uint8_t *pk, uint8_t nk, int8_t nt)
 {
+	uint8_t temp;
+
 	if (nk == 0)
 		return;
+
+	mid_sort(pk, nk);
+
 	if (nt < 0) {
-		while (nt != 0) {
+		while (nt++) {
+			temp = pk[nk - 1];
+			do {
+				temp = mid_sub(temp, 12);
+				if (temp == UMIDI20_KEY_INVALID)
+					break;
+			} while (temp >= pk[0]);
+			pk[nk - 1] = temp;
 			mid_sort(pk, nk);
-			pk[nk - 1] = mid_sub(pk[nk - 1], 12);
-			nt++;
 		}
 	} else {
-		while (nt != 0) {
+		while (nt--) {
+			temp = pk[0];
+			do {
+				temp = mid_add(temp, 12);
+				if (temp == UMIDI20_KEY_INVALID)
+					return;
+			} while (temp <= pk[nk - 1]);
+			pk[0] = temp;
 			mid_sort(pk, nk);
-			pk[0] = mid_add(pk[0], 12);
-			nt--;
 		}
 	}
-	mid_sort(pk, nk);
 }
 
 uint8_t
@@ -120,7 +134,7 @@ mid_add(uint8_t a, uint8_t b)
 	int16_t t = a + b;
 
 	if (t > 127)
-		t = 127;
+		t = UMIDI20_KEY_INVALID;
 	return (t);
 }
 
@@ -130,24 +144,27 @@ mid_sub(uint8_t a, uint8_t b)
 	int16_t t = a - b;
 
 	if (t < 0)
-		t = 0;
+		t = UMIDI20_KEY_INVALID;
 	return (t);
 }
 
 uint8_t
 mid_next_key(uint8_t key, int8_t n)
 {
+	uint8_t temp;
 	if (n > 0) {
 		while (n--) {
-			key = mid_add(key, mid_next_key_tab[key % 12]);
-			if (key == 127)
+			temp = mid_add(key, mid_next_key_tab[key % 12]);
+			if (temp == UMIDI20_KEY_INVALID)
 				break;
+			key = temp;
 		}
 	} else {
 		while (n++) {
-			key = mid_sub(key, mid_prev_key_tab[key % 12]);
-			if (key == 0)
+			temp = mid_sub(key, mid_prev_key_tab[key % 12]);
+			if (temp == UMIDI20_KEY_INVALID)
 				break;
+			key = temp;
 		}
 	}
 	return (key);
