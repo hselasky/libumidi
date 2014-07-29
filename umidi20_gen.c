@@ -109,7 +109,7 @@ mid_trans(uint8_t *pk, uint8_t nk, int8_t nt)
 			do {
 				temp = mid_sub(temp, 12);
 				if (temp == UMIDI20_KEY_INVALID)
-					break;
+					return;
 			} while (temp >= pk[0]);
 			pk[nk - 1] = temp;
 			mid_sort(pk, nk);
