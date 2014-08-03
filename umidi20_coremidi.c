@@ -691,7 +691,7 @@ umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
 
 		for (x = 0; x != z; x++) {
 			ref = MIDIGetDestination(x);
-			if (puj->input_endpoint == ref)
+			if (puj->output_endpoint == ref)
 				break;
 		}
 		if (x == z) {         
