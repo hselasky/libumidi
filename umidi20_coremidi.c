@@ -372,17 +372,10 @@ umidi20_coremidi_alloc_outputs(void)
 		return (NULL);
 
 	for (z = x = 0; x != n; x++) {
-		unsigned long y;
 		CFStringRef name;
 		MIDIEndpointRef src = MIDIGetSource(x);
 
 		if (src == NULL)
-			continue;
-		for (y = 0; y != UMIDI20_N_DEVICES; y++) {
-			if (umidi20_coremidi[y].output_port == src)
-				break;
-		}
-		if (y != UMIDI20_N_DEVICES)
 			continue;
 
 		if (noErr == MIDIObjectGetStringProperty(src,
@@ -414,17 +407,10 @@ umidi20_coremidi_alloc_inputs(void)
 		return (NULL);
 
 	for (z = x = 0; x != n; x++) {
-		unsigned long y;
 		CFStringRef name;
 		MIDIEndpointRef dst = MIDIGetDestination(x);
 
 		if (dst == NULL)
-			continue;
-		for (y = 0; y != UMIDI20_N_DEVICES; y++) {
-			if (umidi20_coremidi[y].input_port == dst)
-				break;
-		}
-		if (y != UMIDI20_N_DEVICES)
 			continue;
 
 		if (noErr == MIDIObjectGetStringProperty(dst,
@@ -543,7 +529,9 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 	if (x == y)
 		return (-1);
 
+	umidi20_coremidi_lock();
 	puj->input_endpoint = src;
+	umidi20_coremidi_unlock();
 
 	MIDIPortConnectSource(puj->input_port, src, NULL);
 
@@ -593,7 +581,9 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 	if (x == y)
 		return (-1);
 
+	umidi20_coremidi_lock();
 	puj->output_endpoint = dst;
+	umidi20_coremidi_unlock();
 
 	MIDIPortConnectSource(puj->output_port, dst, NULL);
 
@@ -630,6 +620,7 @@ umidi20_coremidi_rx_close(uint8_t n)
 	close(puj->write_fd[1]);
 	puj->write_fd[0] = -1;
 	puj->write_fd[1] = -1;
+	puj->input_endpoint = NULL;
 	umidi20_coremidi_unlock();
 
 	return (0);
@@ -652,6 +643,7 @@ umidi20_coremidi_tx_close(uint8_t n)
 	close(puj->read_fd[1]);
 	puj->read_fd[0] = -1;
 	puj->read_fd[1] = -1;
+	puj->output_endpoint = NULL;
 	umidi20_coremidi_unlock();
 
 	return (0);
