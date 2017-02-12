@@ -32,7 +32,6 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <err.h>
-#include <sysexits.h>
 
 #import <CoreMIDI/CoreMIDI.h>
 

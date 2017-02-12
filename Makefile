@@ -37,7 +37,6 @@ INCLUDEDIR=	${PREFIX}/include
 MKLINT=		no
 NO_WERROR=
 NOGCCERROR=
-NO_PROFILE=
 PTHREAD_LIBS?=	-lpthread
 
 LIB=		umidi20

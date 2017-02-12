@@ -25,7 +25,6 @@
 
 #include <sys/uio.h>
 #include <sys/file.h>
-#include <sys/signal.h>
 #include <sys/time.h>
 
 #include <stdio.h>
@@ -35,6 +34,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #ifdef __APPLE__
 #include <mach/mach_time.h>
@@ -121,6 +121,9 @@ umidi20_init(void)
 	uint32_t x;
 
 	umidi20_mutex_init(&(root_dev.mutex));
+
+	pthread_cond_init(&root_dev.cond, NULL);
+
 #ifdef __APPLE__
 	mach_timebase_info(&umidi20_timebase_info);
 #endif
@@ -303,6 +306,7 @@ restart:
 			(entry->fn) (entry->arg);
 			pthread_mutex_lock(&(root_dev.mutex));
 			entry->pending = 0;
+			pthread_cond_broadcast(&root_dev.cond);
 			/* allow callback to update the interval */
 			entry->timeout_pos += entry->ms_interval;
 			goto restart;
@@ -391,15 +395,8 @@ umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg)
 	TAILQ_FOREACH(entry, &root_dev.timers, entry) {
 		if ((entry->fn == fn) && (entry->arg == arg)) {
 			TAILQ_REMOVE(&root_dev.timers, entry, entry);
-			while (entry->pending != 0) {
-				pthread_mutex_unlock(&(root_dev.mutex));
-#ifdef __APPLE__
-				sched_yield();
-#else
-				pthread_yield();
-#endif
-				pthread_mutex_lock(&(root_dev.mutex));
-			}
+			while (entry->pending != 0)
+				pthread_cond_wait(&root_dev.cond, &(root_dev.mutex));
 			pthread_mutex_unlock(&(root_dev.mutex));
 			free(entry);
 			return;
@@ -1684,7 +1681,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[2] = 0;
 		while (write(play_fd, buf, 3) < 0 &&
 		    errno == EWOULDBLOCK && timeout != 0) {
-			usleep(10);
+			usleep(10000);
 			timeout--;
 		}
 	}
@@ -1696,7 +1693,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[2] = 0;
 		while (write(play_fd, buf, 3) < 0 &&
 		    errno == EWOULDBLOCK && timeout != 0) {
-			usleep(10);
+			usleep(10000);
 			timeout--;
 		}
 	}

@@ -331,6 +331,7 @@ struct umidi20_root_device {
 	struct timespec curr_time;
 	struct timespec start_time;
 	pthread_mutex_t mutex;
+	pthread_cond_t cond;
 
 	TAILQ_HEAD(, umidi20_timer_entry) timers;
 

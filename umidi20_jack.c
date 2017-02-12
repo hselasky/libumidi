@@ -37,7 +37,6 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <err.h>
-#include <sysexits.h>
 
 #include <jack/jack.h>
 #include <jack/midiport.h>
