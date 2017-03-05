@@ -232,7 +232,7 @@ static const char *umidi20_android_name;
 	UMIDI20_MTOD(GetStringUTFLength, obj)
 
 #define	UMIDI20_STRING_COPY(obj, start, len, buf) \
-	UMIDI20_MTOD(GetStringUTFRegion, obj, start, len, (jbyte *)(buf))
+	UMIDI20_MTOD(GetStringUTFRegion, obj, start, len, (char *)(buf))
 
 #ifdef HAVE_DEBUG
 #define	DPRINTF(fmt, ...) \
@@ -253,12 +253,6 @@ umidi20_dup_jstring(jstring str)
 	UMIDI20_STRING_COPY(str, 0, len - 1, ptr);
 	ptr[len - 1] = 0;
 	return (ptr);
-}
-
-static jstring
-umidi20_create_jstring(const char *str)
-{
-	return (UMIDI20_MTOD(NewStringUTF, str));
 }
 
 static void
@@ -286,19 +280,24 @@ umidi20_android_wakeup(void)
 }
 
 static void
-umidi20_read_event(const MIDIPacketList * pktList, void *refCon, void *connRefCon)
+umidi20_android_on_send_callback(JNIEnv *env, jobject obj, jobject msg, int offset,
+    int count, long timestamp)
 {
-	struct umidi20_android *puj = refCon;
-	uint32_t n;
+	struct umidi20_android *puj;
+	uint8_t buffer[count];
+	uint8_t x;
 
+	UMIDI20_MTOD(GetByteArrayRegion, msg, offset, count, buffer);
+	
 	umidi20_android_lock();
-	if (puj->write_fd[1] > -1) {
-		const MIDIPacket *packet = &pktList->packet[0];
+	for (x = 0; x != UMIDI20_N_DEVICES; x++) {
+		puj = &umidi20_android[x];
 
-		for (n = 0; n != pktList->numPackets; n++) {
-			write(puj->write_fd[1], packet->data, packet->length);
-			packet = MIDIPacketNext(packet);
-		}
+		if (puj->write_fd[1] < 0)
+			continue;
+		if (puj->input_port != obj)
+			continue;
+		write(puj->write_fd[1], buffer, count);
 	}
 	umidi20_android_unlock();
 }
@@ -588,7 +587,7 @@ umidi20_android_alloc_devices(int is_output)
 
 	umidi20_android_uniq_inputs(ptr);
 
-	return (ptr);
+	return ((const char **)ptr);
 }
 
 const char **
@@ -694,7 +693,6 @@ umidi20_android_open_device(int is_output, const char *devname, jobject *pdev, j
 	jobject MidiDeviceInfo;
 	unsigned long n;
 	unsigned long x;
-	unsigned long z;
 	int index = 0;
 	int retval = 0;
 
@@ -712,7 +710,7 @@ umidi20_android_open_device(int is_output, const char *devname, jobject *pdev, j
 
 	n = UMIDI20_ARRAY_LENGTH(MidiDeviceInfoArray);
 
-	for (z = x = 0; x != n; x++) {
+	for (x = 0; x != n; x++) {
 		int ports;
 		int y;
 
@@ -924,12 +922,6 @@ umidi20_android_find_func(jclass class, jmethodID *out, const char *name, const 
 
 #define	UMIDI20_RESOLVE_FUNC(field,func,name,type) \
 	umidi20_android_find_func(umidi20_class.field.class, &umidi20_class.field.func, name, type)
-
-static void
-umidi20_android_on_send_callback(JNIEnv *env, jobject obj, jobject msg, int offset, int count, long timestamp)
-{
-	DPRINTF("onSend() callback\n");
-}
 
 static const JNINativeMethod umidi20_android_method_table[] = {
 	{ "onDeviceOpened", "(Ljava/lang/Object;)V", (void *)umidi20_android_open_device_callback },
