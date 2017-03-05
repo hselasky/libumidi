@@ -232,7 +232,7 @@ static const char *umidi20_android_name;
 	UMIDI20_MTOD(GetStringUTFLength, obj)
 
 #define	UMIDI20_STRING_COPY(obj, start, len, buf) \
-	UMIDI20_MTOD(GetStringUTFRegion, obj, start, len, buf)
+	UMIDI20_MTOD(GetStringUTFRegion, obj, start, len, (const jbyte *)(buf))
 
 #ifdef HAVE_DEBUG
 #define	DPRINTF(fmt, ...) \
