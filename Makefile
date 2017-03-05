@@ -69,6 +69,7 @@ SRCS+=		umidi20_coremidi_dummy.c
 .endif
 
 .if defined(HAVE_ANDROID)
+LDADD+=		-L${PREFIX}/lib -ljvm
 SRCS+=		umidi20_android.c
 .else
 SRCS+=		umidi20_android_dummy.c
