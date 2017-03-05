@@ -769,6 +769,7 @@ int
 umidi20_android_rx_open(uint8_t n, const char *name)
 {
 	struct umidi20_android *puj;
+	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_android_init_done == 0)
 		return (-1);
@@ -798,6 +799,7 @@ int
 umidi20_android_tx_open(uint8_t n, const char *name)
 {
 	struct umidi20_android *puj;
+	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_android_init_done == 0)
 		return (-1);
