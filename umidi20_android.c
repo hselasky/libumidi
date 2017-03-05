@@ -215,23 +215,23 @@ static const char *umidi20_android_name;
 
 #define	UMIDI20_MTOD(name, ...)	\
 	umidi20_class.env->name(&umidi20_class.env,## __VA_ARGS__)
-	
+
 #define UMIDI20_CALL(ret,func,...) \
 	UMIDI20_MTOD(ret, umidi20_class.func,## __VA_ARGS__)
 
 #define	UMIDI20_ARRAY_LENGTH(obj) \
 	UMIDI20_MTOD(GetObjectArrayLength, obj)
-	
+
 #define	UMIDI20_ARRAY_INDEX(obj, i) \
 	UMIDI20_MTOD(GetObjectArrayElement, obj, i)
-	
+
 #define	UMIDI20_DELETE(obj) \
-	UMIDI20_MTOD(deleteLocalRef, obj);
+	UMIDI20_MTOD(DeleteLocalRef, obj);
 
 #define	UMIDI20_STRING_LENGTH(obj) \
 	UMIDI20_MTOD(GetStringUTFLength, obj)
 
-#define	UMIDI20_STRING_COPY(obj, start, len, buf)			\
+#define	UMIDI20_STRING_COPY(obj, start, len, buf) \
 	UMIDI20_MTOD(GetStringUTFRegion, obj, start, len, buf)
 
 #ifdef HAVE_DEBUG
