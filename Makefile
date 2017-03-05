@@ -68,6 +68,12 @@ CFLAGS+=	-I${PREFIX}/include
 SRCS+=		umidi20_coremidi_dummy.c
 .endif
 
+.if defined(HAVE_ANDROID)
+SRCS+=		umidi20_android.c
+.else
+SRCS+=		umidi20_android_dummy.c
+.endif
+
 .if defined(HAVE_DEBUG)
 CFLAGS+=	-DHAVE_DEBUG
 CFLAGS+=	-g

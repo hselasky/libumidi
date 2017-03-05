@@ -524,6 +524,20 @@ int	umidi20_coremidi_tx_close(uint8_t n);
 int	umidi20_coremidi_init(const char *name);
 
 /*--------------------------------------------------------------------------*
+ * prototypes from "umidi20_android.c"
+ *--------------------------------------------------------------------------*/
+const char **umidi20_android_alloc_inputs(void);
+const char **umidi20_android_alloc_outputs(void);
+void umidi20_android_free_inputs(const char **);
+void umidi20_android_free_outputs(const char **);
+
+int	umidi20_android_rx_open(uint8_t n, const char *name);
+int	umidi20_android_tx_open(uint8_t n, const char *name);
+int	umidi20_android_rx_close(uint8_t n);
+int	umidi20_android_tx_close(uint8_t n);
+int	umidi20_android_init(const char *name);
+
+/*--------------------------------------------------------------------------*
  * MIDI generator code
  *--------------------------------------------------------------------------*/
 #define	C0 0

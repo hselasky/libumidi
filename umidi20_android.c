@@ -495,6 +495,7 @@ umidi20_write_process(void *arg)
 
 		usleep(1000);
 	}
+	return (NULL);
 }
 
 static void
