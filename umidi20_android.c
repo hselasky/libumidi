@@ -684,7 +684,7 @@ umidi20_android_open_device_callback(JNIEnv *env, jobject obj, jobject device)
 }
 
 static int
-umidi20_android_open_device(int is_output, const char *devname, jobject *pdev, jobject *pport)
+umidi20_android_open_device(int is_tx, const char *devname, jobject *pdev, jobject *pport)
 {
   	struct umidi20_android *puj;
 	jstring name = NULL;
@@ -715,7 +715,7 @@ umidi20_android_open_device(int is_output, const char *devname, jobject *pdev, j
 
 		MidiDeviceInfo = UMIDI20_ARRAY_INDEX(MidiDeviceInfoArray, x);
 
-		if (is_output)
+		if (is_tx)
 			ports = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.getInputPortCount, MidiDeviceInfo);
 		else
 			ports = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.getOutputPortCount, MidiDeviceInfo);
@@ -738,7 +738,7 @@ umidi20_android_open_device(int is_output, const char *devname, jobject *pdev, j
 					goto done;
 
 				*pdev = umidi20_device;
-				if (is_output)
+				if (is_tx)
 					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice.openInputPort, *pdev, y);
 				else
 					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice.openOutputPort, *pdev, y);
@@ -760,6 +760,20 @@ done:
 	UMIDI20_DELETE(name);
 	UMIDI20_DELETE(MidiDeviceInfoArray);
 	return (retval);
+}
+
+static void
+umidi20_android_close_device(int is_tx, jobject pdev, jobject pport)
+{
+	if (is_tx) {
+		UMIDI20_CALL(CallVoidMethod, MidiInputPort.close, pport);
+		UMIDI20_CALL(CallVoidMethod, MidiDevice.close, pdev);
+	} else {
+		UMIDI20_CALL(CallVoidMethod, MidiOutputPort.close, pport);
+		UMIDI20_CALL(CallVoidMethod, MidiDevice.close, pdev);
+	}
+	UMIDI20_DELETE(pport);
+	UMIDI20_DELETE(pdev);
 }
 
 int
@@ -786,7 +800,7 @@ umidi20_android_rx_open(uint8_t n, const char *name)
 	umidi20_android_unlock();
 
 	if (error) {
-		umidi20_android_close_device(puj->input_device, puj->input_port);
+		umidi20_android_close_device(0, puj->input_device, puj->input_port);
 		return (-1);
 	}
 	return (puj->write_fd[0]);
@@ -807,7 +821,7 @@ umidi20_android_tx_open(uint8_t n, const char *name)
 	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1)
 		return (-1);
 
-	if (umidi20_android_open_device(0, name, &puj->output_device, &puj->output_port) == 0)
+	if (umidi20_android_open_device(1, name, &puj->output_device, &puj->output_port) == 0)
 		return (-1);
 
 	/* create looback pipe */
@@ -820,7 +834,7 @@ umidi20_android_tx_open(uint8_t n, const char *name)
 	umidi20_android_unlock();
 
 	if (error) {
-		umidi20_android_close_device(puj->output_device, puj->output_port);
+		umidi20_android_close_device(1, puj->output_device, puj->output_port);
 		return (-1);
 	}
 	return (puj->read_fd[1]);
@@ -843,7 +857,7 @@ umidi20_android_rx_close(uint8_t n)
 	puj->write_fd[1] = -1;
 	umidi20_android_unlock();
 
-	umidi20_android_close_device(puj->input_device, puj->input_port);
+	umidi20_android_close_device(0, puj->input_device, puj->input_port);
 
 	return (0);
 }
@@ -865,7 +879,7 @@ umidi20_android_tx_close(uint8_t n)
 	puj->read_fd[1] = -1;
 	umidi20_android_unlock();
 
-	umidi20_android_close_device(puj->output_device, puj->output_port);
+	umidi20_android_close_device(1, puj->output_device, puj->output_port);
 
 	return (0);
 }
