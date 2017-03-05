@@ -732,7 +732,7 @@ umidi20_android_open_device(int is_output, const char *devname, jobject *pdev, j
 				umidi20_android_lock();
 				umidi20_device = (jobject)-1UL;
 				UMIDI20_CALL(CallVoidMethod, MidiManager.openDevice, umidi20_MidiManager,
-				    MidiDeviceInfo, umidi20_class.local.onDeviceOpened, NULL);
+				    MidiDeviceInfo, umidi20_class.local.openCallback, NULL);
 				while (umidi20_device == (jobject)-1UL)
 					umidi20_android_wait();
 				umidi20_android_unlock();
