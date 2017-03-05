@@ -181,8 +181,8 @@ struct umidi20_class_MidiSender {
 };
 
 struct umidi20_class {
-	JavaVM *jvm;
-	JNIEnv *env;
+	JavaVM jvm;
+	JNIEnv env;
 	struct umidi20_class_local local;
 	struct umidi20_class_context context;
 	struct umidi20_class_MidiDevice MidiDevice;
@@ -204,7 +204,7 @@ static struct umidi20_class umidi20_class;
 static jobject umidi20_MidiManager;
 
 static pthread_mutex_t umidi20_android_mtx;
-static pthread_condvar_t umidi20_android_cv;
+static pthread_cond_t umidi20_android_cv;
 static pthread_t umidi20_android_thread;
 static struct umidi20_android umidi20_android[UMIDI20_N_DEVICES];
 static int umidi20_android_init_done;
@@ -214,22 +214,22 @@ static const char *umidi20_android_name;
 #define	UMIDI20_MAX_PORTS 16
 
 #define UMIDI20_CALL(ret,func,...) \
-	umidi20_class.env->ret(umidi20_class.env, umidi20_class.func,## __VA_ARGS__)
+	umidi20_class.env->ret(&umidi20_class.env, umidi20_class.func,## __VA_ARGS__)
 
 #define	UMIDI20_ARRAY_LENGTH(obj) \
-	umidi20_class.env->GetObjectArrayLength(umidi20_class.env, obj)
+	umidi20_class.env->GetObjectArrayLength(&umidi20_class.env, obj)
 	
 #define	UMIDI20_ARRAY_INDEX(obj, i) \
-	umidi20_class.env->GetObjectArrayElement(umidi20_class.env, obj, i)
+	umidi20_class.env->GetObjectArrayElement(&umidi20_class.env, obj, i)
 	
 #define	UMIDI20_DELETE(obj) \
-	umidi20_class.env->deleteLocalRef(umidi20_class.env, obj);
+	umidi20_class.env->deleteLocalRef(&umidi20_class.env, obj);
 
 #define	UMIDI20_STRING_LENGTH(obj) \
-	umidi20_class.env->GetStringUTFLength(umidi20_class.env, obj)
+	umidi20_class.env->GetStringUTFLength(&umidi20_class.env, obj)
 
 #define	UMIDI20_STRING_COPY(obj, start, len, buf)			\
-	umidi20_class.env->GetStringUTFRegion(umidi20_class.env, obj, start, len, buf)
+	umidi20_class.env->GetStringUTFRegion(&umidi20_class.env, obj, start, len, buf)
 	
 #ifdef HAVE_DEBUG
 #define	DPRINTF(fmt, ...) \
@@ -255,7 +255,7 @@ umidi20_dup_jstring(jstring str)
 static jstring
 umidi20_create_jstring(const char *str)
 {
-	return (umidi20_class.env->NewStringUTF(str))
+	return (umidi20_class.env->NewStringUTF(str));
 }
 
 static void
@@ -477,14 +477,14 @@ umidi20_write_process(void *arg)
 						if (len == 0)
 							continue;
 
-						pkt = umidi20_class.env->NewByteArray(umidi20_class.env, len);
+						pkt = umidi20_class.env->NewByteArray(&umidi20_class.env, len);
 						if (pkt == NULL)
 							continue;
 
-						umidi20_class.env->SetByteArrayRegion(umidi20_class.env,
+						umidi20_class.env->SetByteArrayRegion(&umidi20_class.env,
 						    pkt, 0, len, &puj->parse.temp_cmd[1]);
 
-						UMIDI20_CALL(CallVoidMethod, MidiInputPort.send, puj->output_port,
+						UMIDI20_CALL(CallVoidMethod, MidiReceiver.send, puj->output_port,
 						    pkt, 0, len);
 
 						UMIDI20_DELETE(pkt);
@@ -870,11 +870,11 @@ umidi20_android_tx_close(uint8_t n)
 }
 
 static JNIEnv *
-umidi20_android_create_vm(JavaVM **jvm)
+umidi20_android_create_vm(JavaVM *jvm)
 {
 	JavaVMInitArgs args;
 	JavaVMOption options;
-	JNIEnv *env = NULL;
+	JNIEnv env = NULL;
 	int error;
 
 	args.version = JNI_VERSION_1_6;
@@ -883,7 +883,7 @@ umidi20_android_create_vm(JavaVM **jvm)
 	args.options = &options;
 	args.ignoreUnrecognized = 0;
 
-	error = JNI_CreateJavaVM(jvm, (void**)&env, &args);
+	error = JNI_CreateJavaVM(jvm, &env, &args);
 	if (error < 0)
 		env = NULL;
 	return (env);
@@ -894,7 +894,7 @@ umidi20_android_find_class(const char *name)
 {
 	jclass class;
 
-	class = umidi20_class.env->FindClass(umidi20_class.env, name);
+	class = umidi20_class.env->FindClass(&umidi20_class.env, name);
 	if (class == NULL) {
 		DPRINTF("Class %s not found\n");
 		umidi20_android_init_error = 1;
@@ -907,7 +907,7 @@ umidi20_android_find_func(jclass class, jmethodID *out, const char *name, const 
 {
 	jmethodID mtod
 ;
-	mtod = umidi20_class.env->GetStaticMethodID(umidi20_class.env, class, name, args);
+	mtod = umidi20_class.env->GetStaticMethodID(&umidi20_class.env, class, name, args);
 	if (mtod == NULL) {
 		DPRINTF("Method %s not found\n", name);
 		umidi20_android_init_error = 1;
@@ -945,7 +945,7 @@ umidi20_android_init(const char *name)
 		return (-1);
 
 	umidi20_class.local.class =
-	    umidi20_class.env->DefineClass(umidi20_class.env, "/com/android/media/midi/local", NULL, NULL, 0);
+	    umidi20_class.env->DefineClass(&umidi20_class.env, "/com/android/media/midi/local", NULL, NULL, 0);
 	umidi20_class.context.class =
 	    umidi20_android_find_class("/com/android/content/Context");
 	umidi20_class.MidiDevice.class =
@@ -975,7 +975,7 @@ umidi20_android_init(const char *name)
 		return (-1);
 
 	/* local class */
-	if (umidi20_class.env->RegisterNatives(umidi20_class.env,
+	if (umidi20_class.env->RegisterNatives(&umidi20_class.env,
 	    umidi20_class.local.class, &umidi20_android_method_table[0], 1))
 		return (-1);
 
@@ -1173,7 +1173,7 @@ umidi20_android_init(const char *name)
 	    "onDisconnect", "(Ljava/lang/Object;)V");
 
 	/* Register on send function */
-	if (umidi20_class.env->RegisterNatives(umidi20_class.env,
+	if (umidi20_class.env->RegisterNatives(&umidi20_class.env,
 	    umidi20_class.MidiReceiver.class, &umidi20_android_method_table[1], 1))
 		return (-1);
 
