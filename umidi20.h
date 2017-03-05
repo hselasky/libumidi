@@ -289,6 +289,7 @@ struct umidi20_config_dev {
 #define	UMIDI20_ENABLED_CFG_DEV 1
 #define	UMIDI20_ENABLED_CFG_JACK 2
 #define	UMIDI20_ENABLED_CFG_COREMIDI 3
+#define	UMIDI20_ENABLED_CFG_ANDROID 4
 };
 
 struct umidi20_config {

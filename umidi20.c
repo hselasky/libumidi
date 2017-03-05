@@ -592,6 +592,9 @@ umidi20_watchdog_files(void *arg)
 					case UMIDI20_ENABLED_CFG_COREMIDI:
 						umidi20_coremidi_tx_close(x);
 						break;
+					case UMIDI20_ENABLED_CFG_ANDROID:
+						umidi20_android_tx_close(x);
+						break;
 					default:
 						break;
 					}
@@ -605,6 +608,9 @@ umidi20_watchdog_files(void *arg)
 					break;
 				case UMIDI20_ENABLED_CFG_COREMIDI:
 					file_no = umidi20_coremidi_tx_open(x, dev->fname);
+					break;
+				case UMIDI20_ENABLED_CFG_ANDROID:
+					file_no = umidi20_android_tx_open(x, dev->fname);
 					break;
 				default:
 					file_no = -1;
@@ -636,6 +642,9 @@ umidi20_watchdog_files(void *arg)
 					case UMIDI20_ENABLED_CFG_COREMIDI:
 						umidi20_coremidi_rx_close(x);
 						break;
+					case UMIDI20_ENABLED_CFG_ANDROID:
+						umidi20_android_rx_close(x);
+						break;
 					default:
 						break;
 					}
@@ -649,6 +658,9 @@ umidi20_watchdog_files(void *arg)
 					break;
 				case UMIDI20_ENABLED_CFG_COREMIDI:
 					file_no = umidi20_coremidi_rx_open(x, dev->fname);
+					break;
+				case UMIDI20_ENABLED_CFG_ANDROID:
+					file_no = umidi20_android_rx_open(x, dev->fname);
 					break;
 				default:
 					file_no = -1;
