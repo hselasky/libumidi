@@ -213,24 +213,27 @@ static const char *umidi20_android_name;
 
 #define	UMIDI20_MAX_PORTS 16
 
+#define	UMIDI20_MTOD(name, ...)	\
+	umidi20_class.env->name(&umidi20_class.env,## __VA_ARGS__)
+	
 #define UMIDI20_CALL(ret,func,...) \
-	umidi20_class.env->ret(&umidi20_class.env, umidi20_class.func,## __VA_ARGS__)
+	UMIDI20_MTOD(ret, umidi20_class.func,## __VA_ARGS__)
 
 #define	UMIDI20_ARRAY_LENGTH(obj) \
-	umidi20_class.env->GetObjectArrayLength(&umidi20_class.env, obj)
+	UMIDI20_MTOD(GetObjectArrayLength, obj)
 	
 #define	UMIDI20_ARRAY_INDEX(obj, i) \
-	umidi20_class.env->GetObjectArrayElement(&umidi20_class.env, obj, i)
+	UMIDI20_MTOD(GetObjectArrayElement, obj, i)
 	
 #define	UMIDI20_DELETE(obj) \
-	umidi20_class.env->deleteLocalRef(&umidi20_class.env, obj);
+	UMIDI20_MTOD(deleteLocalRef, obj);
 
 #define	UMIDI20_STRING_LENGTH(obj) \
-	umidi20_class.env->GetStringUTFLength(&umidi20_class.env, obj)
+	UMIDI20_MTOD(GetStringUTFLength, obj)
 
 #define	UMIDI20_STRING_COPY(obj, start, len, buf)			\
-	umidi20_class.env->GetStringUTFRegion(&umidi20_class.env, obj, start, len, buf)
-	
+	UMIDI20_MTOD(GetStringUTFRegion, obj, start, len, buf)
+
 #ifdef HAVE_DEBUG
 #define	DPRINTF(fmt, ...) \
     printf("%s:%d: " fmt, __FUNCTION__, __LINE__,## __VA_ARGS__)
@@ -255,7 +258,7 @@ umidi20_dup_jstring(jstring str)
 static jstring
 umidi20_create_jstring(const char *str)
 {
-	return (umidi20_class.env->NewStringUTF(str));
+	return (UMIDI20_MTOD(NewStringUTF, str));
 }
 
 static void
@@ -477,12 +480,11 @@ umidi20_write_process(void *arg)
 						if (len == 0)
 							continue;
 
-						pkt = umidi20_class.env->NewByteArray(&umidi20_class.env, len);
+						pkt = UMIDI20_MTOD(NewByteArray, len);
 						if (pkt == NULL)
 							continue;
 
-						umidi20_class.env->SetByteArrayRegion(&umidi20_class.env,
-						    pkt, 0, len, &puj->parse.temp_cmd[1]);
+						UMIDI20_MTOD(SetByteArrayRegion, pkt, 0, len, &puj->parse.temp_cmd[1]);
 
 						UMIDI20_CALL(CallVoidMethod, MidiReceiver.send, puj->output_port,
 						    pkt, 0, len);
@@ -894,7 +896,7 @@ umidi20_android_find_class(const char *name)
 {
 	jclass class;
 
-	class = umidi20_class.env->FindClass(&umidi20_class.env, name);
+	class = UMIDI20_MTOD(FindClass, name);
 	if (class == NULL) {
 		DPRINTF("Class %s not found\n");
 		umidi20_android_init_error = 1;
@@ -902,18 +904,24 @@ umidi20_android_find_class(const char *name)
 	return (class);
 }
 
+#define	UMIDI20_RESOLVE_CLASS(name, str) \
+	umidi20_class.name.class = umidi20_android_find_class(str)
+
 static void
 umidi20_android_find_func(jclass class, jmethodID *out, const char *name, const char *args)
 {
-	jmethodID mtod
-;
-	mtod = umidi20_class.env->GetStaticMethodID(&umidi20_class.env, class, name, args);
+	jmethodID mtod;
+
+	mtod = UMIDI20_MTOD(GetStaticMethodID, class, name, args);
 	if (mtod == NULL) {
 		DPRINTF("Method %s not found\n", name);
 		umidi20_android_init_error = 1;
 	}
 	*out = mtod;
 }
+
+#define	UMIDI20_RESOLVE_FUNC(field,func,name,type) \
+	umidi20_android_find_func(umidi20_class.field.class, &umidi20_class.field.func, name, type)
 
 static void
 umidi20_android_on_send_callback(JNIEnv *env, jobject obj, jobject msg, int offset, int count, long timestamp)
@@ -945,236 +953,99 @@ umidi20_android_init(const char *name)
 		return (-1);
 
 	umidi20_class.local.class =
-	    umidi20_class.env->DefineClass(&umidi20_class.env, "/com/android/media/midi/local", NULL, NULL, 0);
-	umidi20_class.context.class =
-	    umidi20_android_find_class("/com/android/content/Context");
-	umidi20_class.MidiDevice.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiDevice");
-	umidi20_class.MidiDevice_MidiConnection.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiDevice.MidiConnection");
-	umidi20_class.MidiDeviceInfo.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiDeviceInfo");
-	umidi20_class.MidiDeviceInfo_PortInfo.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiDeviceInfo.PortInfo");
-	umidi20_class.MidiDeviceService.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiDeviceService");
-	umidi20_class.MidiDeviceStatus.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiDeviceStatus");
-	umidi20_class.MidiManager.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiManager");
-	umidi20_class.MidiManager_DeviceCallback.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiManager.DeviceCallback");
-	umidi20_class.MidiOutputPort.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiOutputPort");
-	umidi20_class.MidiReceiver.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiReceiver");
-	umidi20_class.MidiSender.class =
-	    umidi20_android_find_class("/com/android/media/midi/MidiSender");
+	    UMIDI20_MTOD(DefineClass, "/com/android/media/midi/Local", NULL, NULL, 0);
+	if (umidi20_class.local.class == NULL)
+		return (-1);
+
+	UMIDI20_RESOLVE_CLASS(context, "/com/android/content/Context");
+	UMIDI20_RESOLVE_CLASS(MidiDevice, "/com/android/media/midi/MidiDevice");
+	UMIDI20_RESOLVE_CLASS(MidiDevice_MidiConnection, "/com/android/media/midi/MidiDevice.MidiConnection");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo, "/com/android/media/midi/MidiDeviceInfo");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo_PortInfo, "/com/android/media/midi/MidiDeviceInfo.PortInfo");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceService, "/com/android/media/midi/MidiDeviceService");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceStatus, "/com/android/media/midi/MidiDeviceStatus");
+	UMIDI20_RESOLVE_CLASS(MidiManager, "/com/android/media/midi/MidiManager");
+	UMIDI20_RESOLVE_CLASS(MidiManager_DeviceCallback, "/com/android/media/midi/MidiManager.DeviceCallback");
+	UMIDI20_RESOLVE_CLASS(MidiOutputPort, "/com/android/media/midi/MidiOutputPort");
+	UMIDI20_RESOLVE_CLASS(MidiReceiver, "/com/android/media/midi/MidiReceiver");
+	UMIDI20_RESOLVE_CLASS(MidiSender, "/com/android/media/midi/MidiSender");
 
 	if (umidi20_android_init_error != 0)
 		return (-1);
-
-	/* local class */
-	if (umidi20_class.env->RegisterNatives(&umidi20_class.env,
-	    umidi20_class.local.class, &umidi20_android_method_table[0], 1))
+	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.local.class, &umidi20_android_method_table[0], 1))
 		return (-1);
 
-	umidi20_android_find_func(umidi20_class.local.class,
-	  &umidi20_class.local.openCallback,
-	  "openCallback", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(local, openCallback, "openCallback", "(Ljava/lang/Object;)V");
 
-	/* context.class */
-	umidi20_android_find_func(umidi20_class.context.class,
-	    &umidi20_class.context.getSystemService,
-	    "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(context, getSystemService, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
 
-	/* MidiDevice.class */
-	umidi20_android_find_func(umidi20_class.MidiDevice.class,
-	    &umidi20_class.MidiDevice.close,
-	    "close", "()V");
-	umidi20_android_find_func(umidi20_class.MidiDevice.class,
-	    &umidi20_class.MidiDevice.connectPorts,
-	    "connectPorts", "(Ljava/lang/Object;I)Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiDevice.class,
-	    &umidi20_class.MidiDevice.getInfo,
-	    "getInfo", "()Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiDevice.class,
-	    &umidi20_class.MidiDevice.openInputPort,
-	    "openInputPort", "(I)Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiDevice.class,
-	    &umidi20_class.MidiDevice.openOutputPort,
-	    "openOutputPort", "(I)Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiDevice.class,
-	    &umidi20_class.MidiDevice.toString,
-	    "toString", "()Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, close, "close", "()V");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, connectPorts, "connectPorts", "(Ljava/lang/Object;I)Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, getInfo, "getInfo", "()Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, openInputPort, "openInputPort", "(I)Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, openOutputPort, "openOutputPort", "(I)Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, toString, "toString", "()Ljava/lang/Object;");
 
-	/* MidiDevice_MidiConnection.class */
-	umidi20_android_find_func(umidi20_class.MidiDevice_MidiConnection.class,
-	    &umidi20_class.MidiDevice_MidiConnection.close,
-	    "close", "()V");
+	UMIDI20_RESOLVE_FUNC(MidiDevice_MidiConnection, close, "close", "()V");
 
-	/* MidiDeviceInfo.class */
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.describeContents,
-	    "describeContents", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.equals,
-	    "equals", "(Ljava/lang/Object;)Z");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.getId,
-	    "getId", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.getInputPortCount,
-	    "getInputPortCount", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.getOutputPortCount,
-	    "getOutputPortCount", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.getPorts,
-	    "getPorts", "()[Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.getProperties,
-	    "getProperties", "()[Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.getType,
-	    "getType", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.hashCode,
-	    "hashCode", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.isPrivate,
-	    "isPrivate", "()Z");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.toString,
-	    "toString", "()Ljava/lang/String;");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo.class,
-	    &umidi20_class.MidiDeviceInfo.writeToParcel,
-	    "writeToParcel", "(Ljava/lang/Object;I)V");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, describeContents, "describeContents", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, equals, "equals", "(Ljava/lang/Object;)Z");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getId, "getId", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getInputPortCount, "getInputPortCount", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getOutputPortCount, "getOutputPortCount", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getPorts, "getPorts", "()[Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getProperties, "getProperties", "()[Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getType, "getType", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, hashCode, "hashCode", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, isPrivate, "isPrivate", "()Z");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, toString, "toString", "()Ljava/lang/String;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, writeToParcel, "writeToParcel", "(Ljava/lang/Object;I)V");
 
-	/* MidiDeviceInfo_PortInfo.class */
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo_PortInfo.class,
-	    &umidi20_class.MidiDeviceInfo_PortInfo.getName,
-	    "getName", "()Ljava/lang/String;");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo_PortInfo.class,
-	    &umidi20_class.MidiDeviceInfo_PortInfo.getPortNumber,
-	    "getPortNumber", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceInfo_PortInfo.class,
-	    &umidi20_class.MidiDeviceInfo_PortInfo.getType,
-	    "getType", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getName, "getName", "()Ljava/lang/String;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getPortNumber, "getPortNumber", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getType, "getType", "()I");
 
-	/* MidiDeviceStatus.class */
-	umidi20_android_find_func(umidi20_class.MidiDeviceStatus.class,
-	    &umidi20_class.MidiDeviceStatus.describeContents,
-	    "describeContents", "()I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceStatus.class,
-	    &umidi20_class.MidiDeviceStatus.getDeviceInfo,
-	    "getDeviceInfo", "()Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiDeviceStatus.class,
-	    &umidi20_class.MidiDeviceStatus.getOutputPortOpenCount,
-	    "getOutputPortOpenCount", "(I)I");
-	umidi20_android_find_func(umidi20_class.MidiDeviceStatus.class,
-	    &umidi20_class.MidiDeviceStatus.isInputPortOpen,
-	    "isInputPortOpen", "(I)Z");
-	umidi20_android_find_func(umidi20_class.MidiDeviceStatus.class,
-	    &umidi20_class.MidiDeviceStatus.toString,
-	    "toString", "()Ljava/lang/String;");
-	umidi20_android_find_func(umidi20_class.MidiDeviceStatus.class,
-	    &umidi20_class.MidiDeviceStatus.writeToParcel,
-	    "writeToParcel", "(Ljava/lang/Object;I)V");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, describeContents, "describeContents", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, getDeviceInfo, "getDeviceInfo", "()Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, getOutputPortOpenCount, "getOutputPortOpenCount", "(I)I");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, isInputPortOpen, "isInputPortOpen", "(I)Z");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, toString, "toString", "()Ljava/lang/String;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, writeToParcel, "writeToParcel", "(Ljava/lang/Object;I)V");
 
-	/* MidiInputPort.class */
-	umidi20_android_find_func(umidi20_class.MidiInputPort.class,
-	    &umidi20_class.MidiInputPort.close,
-	    "close", "()V");
-	umidi20_android_find_func(umidi20_class.MidiInputPort.class,
-	    &umidi20_class.MidiInputPort.getPortNumber,
-	    "getPortNumber", "()I");
-	umidi20_android_find_func(umidi20_class.MidiInputPort.class,
-	    &umidi20_class.MidiInputPort.onFlush,
-	    "onFlush", "()V");
-	umidi20_android_find_func(umidi20_class.MidiInputPort.class,
-	    &umidi20_class.MidiInputPort.onSend,
-	    "onSend", "([BIIJ)V");
+	UMIDI20_RESOLVE_FUNC(MidiInputPort, close, "close", "()V");
+	UMIDI20_RESOLVE_FUNC(MidiInputPort, getPortNumber, "getPortNumber", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiInputPort, onFlush, "onFlush", "()V");
+	UMIDI20_RESOLVE_FUNC(MidiInputPort, onSend, "onSend", "([BIIJ)V");
 
-	/* MidiManager.class */
-	umidi20_android_find_func(umidi20_class.MidiManager.class,
-	    &umidi20_class.MidiManager.getDevices,
-	    "getDevices", "()[Ljava/lang/Object;");
-	umidi20_android_find_func(umidi20_class.MidiManager.class,
-	    &umidi20_class.MidiManager.openBluetoothDevice,
-	    "openBluetoothDevice", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiManager.class,
-	    &umidi20_class.MidiManager.openDevice,
-	    "openDevice", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiManager.class,
-	    &umidi20_class.MidiManager.registerDeviceCallback,
-	    "registerDeviceCallback", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiManager.class,
-	    &umidi20_class.MidiManager.unregisterDeviceCallback,
-	    "unregisterDeviceCallback", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, getDevices, "getDevices", "()[Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiManager, openBluetoothDevice, "openBluetoothDevice", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, openDevice, "openDevice", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, registerDeviceCallback, "registerDeviceCallback", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, unregisterDeviceCallback, "unregisterDeviceCallback", "(Ljava/lang/Object;)V");
 
-	/* MidiManager_DeviceCallback.class */
-	umidi20_android_find_func(umidi20_class.MidiManager_DeviceCallback.class,
-	    &umidi20_class.MidiManager_DeviceCallback.onDeviceAdded,
-	    "onDeviceAdded", "(Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiManager_DeviceCallback.class,
-	    &umidi20_class.MidiManager_DeviceCallback.onDeviceRemoved,
-	    "onDeviceRemoved", "(Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiManager_DeviceCallback.class,
-	    &umidi20_class.MidiManager_DeviceCallback.onDeviceStatusChanged,
-	    "onDeviceStatusChanged", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceAdded, "onDeviceAdded", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceRemoved, "onDeviceRemoved", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceStatusChanged, "onDeviceStatusChanged", "(Ljava/lang/Object;)V");
 
-	/* MidiOutputPort.class */
-	umidi20_android_find_func(umidi20_class.MidiOutputPort.class,
-	    &umidi20_class.MidiOutputPort.close,
-	    "close", "()V");
-	umidi20_android_find_func(umidi20_class.MidiOutputPort.class,
-	    &umidi20_class.MidiOutputPort.getPortNumber,
-	    "getPortNumber", "()I");
-	umidi20_android_find_func(umidi20_class.MidiOutputPort.class,
-	    &umidi20_class.MidiOutputPort.onConnect,
-	    "onConnect", "(Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiOutputPort.class,
-	    &umidi20_class.MidiOutputPort.onDisconnect,
-	    "onDisconnect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiOutputPort, close, "close", "()V");
+	UMIDI20_RESOLVE_FUNC(MidiOutputPort, getPortNumber, "getPortNumber", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onConnect, "onConnect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onDisconnect, "onDisconnect", "(Ljava/lang/Object;)V");
 
-	/* MidiReceiver.class */
-	umidi20_android_find_func(umidi20_class.MidiReceiver.class,
-	    &umidi20_class.MidiReceiver.flush,
-	    "flush", "()V");
-	umidi20_android_find_func(umidi20_class.MidiReceiver.class,
-	    &umidi20_class.MidiReceiver.getMaxMessageSize,
-	    "getMaxMessageSize", "()I");
-	umidi20_android_find_func(umidi20_class.MidiReceiver.class,
-	    &umidi20_class.MidiReceiver.onFlush,
-	    "onFlush", "()V");
-	umidi20_android_find_func(umidi20_class.MidiReceiver.class,
-	    &umidi20_class.MidiReceiver.onSend,
-	    "onSend", "([BIIJ)V");
-	umidi20_android_find_func(umidi20_class.MidiReceiver.class,
-	    &umidi20_class.MidiReceiver.send,
-	    "send", "([BII)V");
-	umidi20_android_find_func(umidi20_class.MidiReceiver.class,
-	    &umidi20_class.MidiReceiver.sendTs,
-	    "send", "([BIIJ)V");
+	UMIDI20_RESOLVE_FUNC(MidiReceiver, flush, "flush", "()V");
+	UMIDI20_RESOLVE_FUNC(MidiReceiver, getMaxMessageSize, "getMaxMessageSize", "()I");
+	UMIDI20_RESOLVE_FUNC(MidiReceiver, onFlush, "onFlush", "()V");
+	UMIDI20_RESOLVE_FUNC(MidiReceiver, onSend, "onSend", "([BIIJ)V");
+	UMIDI20_RESOLVE_FUNC(MidiReceiver, send, "send", "([BII)V");
+	UMIDI20_RESOLVE_FUNC(MidiReceiver, sendTs, "send", "([BIIJ)V");
 
-	/* MidiSender.class */
-	umidi20_android_find_func(umidi20_class.MidiSender.class,
-	    &umidi20_class.MidiSender.connect,
-	    "connect", "(Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiSender.class,
-	    &umidi20_class.MidiSender.disconnect,
-	    "disconnect", "(Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiSender.class,
-	    &umidi20_class.MidiSender.onConnect,
-	    "onConnect", "(Ljava/lang/Object;)V");
-	umidi20_android_find_func(umidi20_class.MidiSender.class,
-	    &umidi20_class.MidiSender.onDisconnect,
-	    "onDisconnect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, connect, "connect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, disconnect, "disconnect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, onConnect, "onConnect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, onDisconnect, "onDisconnect", "(Ljava/lang/Object;)V");
 
 	/* Register on send function */
-	if (umidi20_class.env->RegisterNatives(&umidi20_class.env,
-	    umidi20_class.MidiReceiver.class, &umidi20_android_method_table[1], 1))
+	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.MidiReceiver.class, &umidi20_android_method_table[1], 1))
 		return (-1);
 
 	/* basic init */
