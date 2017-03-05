@@ -810,7 +810,7 @@ umidi20_android_tx_open(uint8_t n, const char *name)
 	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1)
 		return (-1);
 
-	if (umidi20_android_open_device(0, name, &puj->output_dev, &puj->output_port) == 0)
+	if (umidi20_android_open_device(0, name, &puj->output_device, &puj->output_port) == 0)
 		return (-1);
 
 	/* create looback pipe */
@@ -823,7 +823,7 @@ umidi20_android_tx_open(uint8_t n, const char *name)
 	umidi20_android_unlock();
 
 	if (error) {
-		umidi20_android_close_device(puj->output_dev, puj->output_port);
+		umidi20_android_close_device(puj->output_device, puj->output_port);
 		return (-1);
 	}
 	return (puj->read_fd[1]);
@@ -868,7 +868,7 @@ umidi20_android_tx_close(uint8_t n)
 	puj->read_fd[1] = -1;
 	umidi20_android_unlock();
 
-	umidi20_android_close_device(puj->output_dev, puj->output_port);
+	umidi20_android_close_device(puj->output_device, puj->output_port);
 
 	return (0);
 }
