@@ -459,8 +459,6 @@ umidi20_convert_to_usb(struct umidi20_android *puj, uint8_t cn, uint8_t b)
 static void *
 umidi20_write_process(void *arg)
 {
-	MIDIPacketList pktList;
-	MIDIPacket *pkt;
 	uint8_t data[1];
 	uint8_t len;
 	int n;
