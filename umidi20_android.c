@@ -742,11 +742,11 @@ umidi20_android_open_device(int is_output, const char *devname, jobject *pdev, j
 
 				*pdev = umidi20_device;
 				if (is_output)
-					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice, openInputPort, *pdev, y);
+					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice.openInputPort, *pdev, y);
 				else
-					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice, openOutputPort, *pdev, y);
+					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice.openOutputPort, *pdev, y);
 				if (*pport == NULL) {
-					UMIDI20_CALL(CallVoidMethod, MidiDevice, close, *pdev);
+					UMIDI20_CALL(CallVoidMethod, MidiDevice.close, *pdev);
 					UMIDI20_DELETE(*pdev);
 					*pdev = NULL;
 					goto done;
