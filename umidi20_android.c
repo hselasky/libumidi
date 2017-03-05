@@ -220,7 +220,7 @@ static const char *umidi20_android_name;
 	UMIDI20_MTOD(ret, umidi20_class.func,## __VA_ARGS__)
 
 #define	UMIDI20_ARRAY_LENGTH(obj) \
-	UMIDI20_MTOD(GetObjectArrayLength, obj)
+	UMIDI20_MTOD(GetArrayLength, obj)
 
 #define	UMIDI20_ARRAY_INDEX(obj, i) \
 	UMIDI20_MTOD(GetObjectArrayElement, obj, i)
