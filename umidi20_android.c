@@ -192,6 +192,7 @@ struct umidi20_class {
 	struct umidi20_class_MidiInputPort MidiInputPort;
 	struct umidi20_class_MidiManager MidiManager;
 	struct umidi20_class_MidiManager_DeviceCallback MidiManager_DeviceCallback;
+	struct umidi20_class_MidiManager_OnDeviceOpenedListener MidiManager_OnDeviceOpenedListener;
 	struct umidi20_class_MidiOutputPort MidiOutputPort;
 	struct umidi20_class_MidiReceiver MidiReceiver;
 	struct umidi20_class_MidiSender MidiSender;
