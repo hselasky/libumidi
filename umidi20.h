@@ -536,7 +536,7 @@ int	umidi20_android_rx_open(uint8_t n, const char *name);
 int	umidi20_android_tx_open(uint8_t n, const char *name);
 int	umidi20_android_rx_close(uint8_t n);
 int	umidi20_android_tx_close(uint8_t n);
-int	umidi20_android_init(const char *name, void *jvm, void *env);
+int	umidi20_android_init(const char *name, void *jvm, const void *env);
 
 /*--------------------------------------------------------------------------*
  * MIDI generator code

@@ -182,7 +182,7 @@ struct umidi20_class_MidiSender {
 
 struct umidi20_class {
 	JavaVM jvm;
-	JNIEnv env;
+	const JNIEnv env;
 	struct umidi20_class_local local;
 	struct umidi20_class_context context;
 	struct umidi20_class_MidiDevice MidiDevice;
@@ -922,7 +922,7 @@ static const JNINativeMethod umidi20_android_method_table[] = {
 };
 
 int
-umidi20_android_init(const char *name, void *parent_jvm, void *parent_env)
+umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 {
 	struct umidi20_android *puj;
 	char devname[64];
