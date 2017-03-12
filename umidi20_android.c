@@ -978,7 +978,7 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, hashCode, "hashCode", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, isPrivate, "isPrivate", "()Z");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, toString, "toString", "()Ljava/lang/String;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, writeToParcel, "writeToParcel", "(Ljandroid/os/Parcel;I)V");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, writeToParcel, "writeToParcel", "(Landroid/os/Parcel;I)V");
 
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getName, "getName", "()Ljava/lang/String;");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getPortNumber, "getPortNumber", "()I");
