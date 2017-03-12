@@ -884,26 +884,6 @@ umidi20_android_tx_close(uint8_t n)
 	return (0);
 }
 
-static JNIEnv *
-umidi20_android_create_vm(JavaVM *jvm)
-{
-	JavaVMInitArgs args;
-	JavaVMOption options;
-	JNIEnv env = NULL;
-	int error;
-
-	args.version = JNI_VERSION_1_6;
-	args.nOptions = 1;
-	options.optionString = "-Djava.class.path=./";
-	args.options = &options;
-	args.ignoreUnrecognized = 0;
-
-	error = JNI_CreateJavaVM(jvm, &env, &args);
-	if (error < 0)
-		env = NULL;
-	return (env);
-}
-
 static jclass
 umidi20_android_find_class(const char *name)
 {
