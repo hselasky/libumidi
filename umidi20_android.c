@@ -182,7 +182,7 @@ struct umidi20_class_MidiSender {
 
 struct umidi20_class {
 	JavaVM jvm;
-	const JNIEnv env;
+	JNIEnv *env;
 	struct umidi20_class_local local;
 	struct umidi20_class_context context;
 	struct umidi20_class_MidiDevice MidiDevice;
@@ -214,7 +214,7 @@ static const char *umidi20_android_name;
 #define	UMIDI20_MAX_PORTS 16
 
 #define	UMIDI20_MTOD(name, ...)	\
-	umidi20_class.env->name(&umidi20_class.env,## __VA_ARGS__)
+	umidi20_class.env[0]->name(umidi20_class.env,## __VA_ARGS__)
 
 #define UMIDI20_CALL(ret,func,...) \
 	UMIDI20_MTOD(ret, umidi20_class.func,## __VA_ARGS__)
@@ -901,11 +901,12 @@ umidi20_android_find_class(const char *name)
 	umidi20_class.name.class = umidi20_android_find_class(str)
 
 static void
-umidi20_android_find_func(jclass class, jmethodID *out, const char *name, const char *args)
+umidi20_android_find_func(jclass class, jmethodID *out, const char *name,
+    const char *args)
 {
 	jmethodID mtod;
 
-	mtod = UMIDI20_MTOD(GetStaticMethodID, class, name, args);
+	mtod = UMIDI20_MTOD(GetMethodID, class, name, args);
 	if (mtod == NULL) {
 		DPRINTF("Method %s not found\n", name);
 		umidi20_android_init_error = 1;
@@ -917,7 +918,7 @@ umidi20_android_find_func(jclass class, jmethodID *out, const char *name, const 
 	umidi20_android_find_func(umidi20_class.field.class, &umidi20_class.field.func, name, type)
 
 static const JNINativeMethod umidi20_android_method_table[] = {
-	{ "onDeviceOpened", "(Ljava/lang/Object;)V", (void *)umidi20_android_open_device_callback },
+	{ "onDeviceOpened", "(Landroid/media/midi/MidiDevice;)V", (void *)umidi20_android_open_device_callback },
 	{ "onSend", "([BIIJ)V", (void *)umidi20_android_on_send_callback },
 };
 
@@ -937,39 +938,32 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 
 	umidi20_class.env = parent_env;
 	umidi20_class.jvm = parent_jvm;
-	umidi20_class.local.class =
-	    UMIDI20_MTOD(DefineClass, "/com/android/media/midi/Local", NULL, NULL, 0);
-	if (umidi20_class.local.class == NULL)
-		return (-1);
 
-	UMIDI20_RESOLVE_CLASS(context, "/com/android/content/Context");
-	UMIDI20_RESOLVE_CLASS(MidiDevice, "/com/android/media/midi/MidiDevice");
-	UMIDI20_RESOLVE_CLASS(MidiDevice_MidiConnection, "/com/android/media/midi/MidiDevice.MidiConnection");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo, "/com/android/media/midi/MidiDeviceInfo");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo_PortInfo, "/com/android/media/midi/MidiDeviceInfo.PortInfo");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceService, "/com/android/media/midi/MidiDeviceService");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceStatus, "/com/android/media/midi/MidiDeviceStatus");
-	UMIDI20_RESOLVE_CLASS(MidiManager, "/com/android/media/midi/MidiManager");
-	UMIDI20_RESOLVE_CLASS(MidiManager_DeviceCallback, "/com/android/media/midi/MidiManager.DeviceCallback");
-	UMIDI20_RESOLVE_CLASS(MidiOutputPort, "/com/android/media/midi/MidiOutputPort");
-	UMIDI20_RESOLVE_CLASS(MidiReceiver, "/com/android/media/midi/MidiReceiver");
-	UMIDI20_RESOLVE_CLASS(MidiSender, "/com/android/media/midi/MidiSender");
+	UMIDI20_RESOLVE_CLASS(context, "android/content/Context");
+	UMIDI20_RESOLVE_CLASS(MidiDevice, "android/media/midi/MidiDevice");
+	UMIDI20_RESOLVE_CLASS(MidiDevice_MidiConnection, "android/media/midi/MidiDevice$MidiConnection");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo, "android/media/midi/MidiDeviceInfo");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo_PortInfo, "android/media/midi/MidiDeviceInfo$PortInfo");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceService, "android/media/midi/MidiDeviceService");
+	UMIDI20_RESOLVE_CLASS(MidiDeviceStatus, "android/media/midi/MidiDeviceStatus");
+	UMIDI20_RESOLVE_CLASS(MidiManager, "android/media/midi/MidiManager");
+	UMIDI20_RESOLVE_CLASS(MidiManager_DeviceCallback, "android/media/midi/MidiManager$DeviceCallback");
+	UMIDI20_RESOLVE_CLASS(MidiInputPort, "android/media/midi/MidiInputPort");
+	UMIDI20_RESOLVE_CLASS(MidiOutputPort, "android/media/midi/MidiOutputPort");
+	UMIDI20_RESOLVE_CLASS(MidiReceiver, "android/media/midi/MidiReceiver");
+	UMIDI20_RESOLVE_CLASS(MidiSender, "android/media/midi/MidiSender");
 
 	if (umidi20_android_init_error != 0)
 		return (-1);
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.local.class, &umidi20_android_method_table[0], 1))
-		return (-1);
-
-	UMIDI20_RESOLVE_FUNC(local, openCallback, "openCallback", "(Ljava/lang/Object;)V");
 
 	UMIDI20_RESOLVE_FUNC(context, getSystemService, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
 
 	UMIDI20_RESOLVE_FUNC(MidiDevice, close, "close", "()V");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, connectPorts, "connectPorts", "(Ljava/lang/Object;I)Ljava/lang/Object;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, getInfo, "getInfo", "()Ljava/lang/Object;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, openInputPort, "openInputPort", "(I)Ljava/lang/Object;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, openOutputPort, "openOutputPort", "(I)Ljava/lang/Object;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, toString, "toString", "()Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, connectPorts, "connectPorts", "(Landroid/media/midi/MidiInputPort;I)Landroid/media/midi/MidiDevice$MidiConnection;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, getInfo, "getInfo", "()Landroid/media/midi/MidiDeviceInfo;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, openInputPort, "openInputPort", "(I)Landroid/media/midi/MidiInputPort;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, openOutputPort, "openOutputPort", "(I)Landroid/media/midi/MidiOutputPort;");
+	UMIDI20_RESOLVE_FUNC(MidiDevice, toString, "toString", "()Ljava/lang/String;");
 
 	UMIDI20_RESOLVE_FUNC(MidiDevice_MidiConnection, close, "close", "()V");
 
@@ -978,44 +972,44 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getId, "getId", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getInputPortCount, "getInputPortCount", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getOutputPortCount, "getOutputPortCount", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getPorts, "getPorts", "()[Ljava/lang/Object;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getProperties, "getProperties", "()[Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getPorts, "getPorts", "()[Landroid/media/midi/MidiDeviceInfo$PortInfo;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getProperties, "getProperties", "()[Landroid/os/Bundle;");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getType, "getType", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, hashCode, "hashCode", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, isPrivate, "isPrivate", "()Z");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, toString, "toString", "()Ljava/lang/String;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, writeToParcel, "writeToParcel", "(Ljava/lang/Object;I)V");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, writeToParcel, "writeToParcel", "(Ljandroid/os/Parcel;I)V");
 
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getName, "getName", "()Ljava/lang/String;");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getPortNumber, "getPortNumber", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getType, "getType", "()I");
 
 	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, describeContents, "describeContents", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, getDeviceInfo, "getDeviceInfo", "()Ljava/lang/Object;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, getDeviceInfo, "getDeviceInfo", "()Landroid/media/midi/MidiDeviceInfo;");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, getOutputPortOpenCount, "getOutputPortOpenCount", "(I)I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, isInputPortOpen, "isInputPortOpen", "(I)Z");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, toString, "toString", "()Ljava/lang/String;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, writeToParcel, "writeToParcel", "(Ljava/lang/Object;I)V");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, writeToParcel, "writeToParcel", "(Landroid/os/Parcel;I)V");
 
 	UMIDI20_RESOLVE_FUNC(MidiInputPort, close, "close", "()V");
 	UMIDI20_RESOLVE_FUNC(MidiInputPort, getPortNumber, "getPortNumber", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiInputPort, onFlush, "onFlush", "()V");
 	UMIDI20_RESOLVE_FUNC(MidiInputPort, onSend, "onSend", "([BIIJ)V");
 
-	UMIDI20_RESOLVE_FUNC(MidiManager, getDevices, "getDevices", "()[Ljava/lang/Object;");
-	UMIDI20_RESOLVE_FUNC(MidiManager, openBluetoothDevice, "openBluetoothDevice", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager, openDevice, "openDevice", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager, registerDeviceCallback, "registerDeviceCallback", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager, unregisterDeviceCallback, "unregisterDeviceCallback", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, getDevices, "getDevices", "()[Landroid/media/midi/MidiDeviceInfo;");
+	UMIDI20_RESOLVE_FUNC(MidiManager, openBluetoothDevice, "openBluetoothDevice", "(Landroid/bluetooth/BluetoothDevice;Landroid/media/midi/MidiManager$OnDeviceOpenedListener;Landroid/os/Handler;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, openDevice, "openDevice", "(Landroid/media/midi/MidiDeviceInfo;Landroid/media/midi/MidiManager$OnDeviceOpenedListener;Landroid/os/Handler;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, registerDeviceCallback, "registerDeviceCallback", "(Landroid/media/midi/MidiManager$DeviceCallback;Landroid/os/Handler;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager, unregisterDeviceCallback, "unregisterDeviceCallback", "(Landroid/media/midi/MidiManager$DeviceCallback;)V");
 
-	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceAdded, "onDeviceAdded", "(Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceRemoved, "onDeviceRemoved", "(Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceStatusChanged, "onDeviceStatusChanged", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceAdded, "onDeviceAdded", "(Landroid/media/midi/MidiDeviceInfo;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceRemoved, "onDeviceRemoved", "(Landroid/media/midi/MidiDeviceInfo;)V");
+	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceStatusChanged, "onDeviceStatusChanged", "(Landroid/media/midi/MidiDeviceStatus;)V");
 
 	UMIDI20_RESOLVE_FUNC(MidiOutputPort, close, "close", "()V");
 	UMIDI20_RESOLVE_FUNC(MidiOutputPort, getPortNumber, "getPortNumber", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onConnect, "onConnect", "(Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onDisconnect, "onDisconnect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onConnect, "onConnect", "(Landroid/media/midi/MidiReceiver;)V");
+	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onDisconnect, "onDisconnect", "(Landroid/media/midi/MidiReceiver;)V");
 
 	UMIDI20_RESOLVE_FUNC(MidiReceiver, flush, "flush", "()V");
 	UMIDI20_RESOLVE_FUNC(MidiReceiver, getMaxMessageSize, "getMaxMessageSize", "()I");
@@ -1024,13 +1018,13 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	UMIDI20_RESOLVE_FUNC(MidiReceiver, send, "send", "([BII)V");
 	UMIDI20_RESOLVE_FUNC(MidiReceiver, sendTs, "send", "([BIIJ)V");
 
-	UMIDI20_RESOLVE_FUNC(MidiSender, connect, "connect", "(Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiSender, disconnect, "disconnect", "(Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiSender, onConnect, "onConnect", "(Ljava/lang/Object;)V");
-	UMIDI20_RESOLVE_FUNC(MidiSender, onDisconnect, "onDisconnect", "(Ljava/lang/Object;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, connect, "connect", "(Landroid/media/midi/MidiReceiver;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, disconnect, "disconnect", "(Landroid/media/midi/MidiReceiver;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, onConnect, "onConnect", "(Landroid/media/midi/MidiReceiver;)V");
+	UMIDI20_RESOLVE_FUNC(MidiSender, onDisconnect, "onDisconnect", "(Landroid/media/midi/MidiReceiver;)V");
 
 	/* Register on send function */
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.MidiReceiver.class, &umidi20_android_method_table[1], 1))
+	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.MidiReceiver.class, &umidi20_android_method_table[0], 2))
 		return (-1);
 
 	/* basic init */
