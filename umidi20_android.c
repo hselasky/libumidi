@@ -973,7 +973,7 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getInputPortCount, "getInputPortCount", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getOutputPortCount, "getOutputPortCount", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getPorts, "getPorts", "()[Landroid/media/midi/MidiDeviceInfo$PortInfo;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getProperties, "getProperties", "()[Landroid/os/Bundle;");
+	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getProperties, "getProperties", "()Landroid/os/Bundle;");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getType, "getType", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, hashCode, "hashCode", "()I");
 	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, isPrivate, "isPrivate", "()Z");
