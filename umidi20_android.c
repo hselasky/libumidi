@@ -942,7 +942,7 @@ static const JNINativeMethod umidi20_android_method_table[] = {
 };
 
 int
-umidi20_android_init(const char *name)
+umidi20_android_init(const char *name, void *parent_jvm, void *parent_env)
 {
 	struct umidi20_android *puj;
 	char devname[64];
@@ -955,10 +955,8 @@ umidi20_android_init(const char *name)
 	pthread_mutex_init(&umidi20_android_mtx, NULL);
 	pthread_cond_init(&umidi20_android_cv, NULL);
 
-	umidi20_class.env = umidi20_android_create_vm(&umidi20_class.jvm);
-	if (umidi20_class.env == NULL)
-		return (-1);
-
+	umidi20_class.env = parent_env;
+	umidi20_class.jvm = parent_jvm;
 	umidi20_class.local.class =
 	    UMIDI20_MTOD(DefineClass, "/com/android/media/midi/Local", NULL, NULL, 0);
 	if (umidi20_class.local.class == NULL)

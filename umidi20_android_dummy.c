@@ -75,7 +75,7 @@ umidi20_android_tx_close(uint8_t n)
 }
 
 int
-umidi20_android_init(const char *name)
+umidi20_android_init(const char *name, void *parent_jvm, void *parent_env)
 {
 	return (-2);
 }
