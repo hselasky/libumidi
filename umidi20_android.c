@@ -179,6 +179,17 @@ struct umidi20_class_MidiSender {
 	jmethodID onDisconnect;
 };
 
+struct umidi20_class_open {
+  	jclass class;
+	jmethodID onDeviceOpened;
+	jmethodID openDevice;
+};
+
+struct umidi20_class_send {
+  	jclass class;
+	jmethodID onSend;
+};
+
 struct umidi20_class {
 	JavaVM jvm;
 	JNIEnv *env;
@@ -196,6 +207,8 @@ struct umidi20_class {
 	struct umidi20_class_MidiOutputPort MidiOutputPort;
 	struct umidi20_class_MidiReceiver MidiReceiver;
 	struct umidi20_class_MidiSender MidiSender;
+	struct umidi20_class_open open;
+	struct umidi20_class_send send;
 };
 
 static struct umidi20_class umidi20_class;
@@ -727,8 +740,7 @@ umidi20_android_open_device(int is_tx, const char *devname, jobject *pdev, jobje
 			if (umidi20_android_compare_dev_string(name, devname, &index)) {
 				umidi20_android_lock();
 				umidi20_device = (jobject)-1UL;
-				UMIDI20_CALL(CallVoidMethod, MidiManager.openDevice, umidi20_MidiManager,
-				    MidiDeviceInfo, umidi20_class.MidiManager_OnDeviceOpenedListener.onDeviceOpened, NULL);
+				UMIDI20_CALL(CallVoidMethod, open.openDevice, umidi20_MidiManager, MidiDeviceInfo);
 				while (umidi20_device == (jobject)-1UL)
 					umidi20_android_wait();
 				umidi20_android_unlock();
@@ -953,9 +965,26 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	UMIDI20_RESOLVE_CLASS(MidiReceiver, "android/media/midi/MidiReceiver");
 	UMIDI20_RESOLVE_CLASS(MidiSender, "android/media/midi/MidiSender");
 
+	/* local classes */
+	UMIDI20_RESOLVE_CLASS(open, "umidi20_android$open");
+	UMIDI20_RESOLVE_CLASS(send, "umidi20_android$send");
+
 	if (umidi20_android_init_error != 0)
 		return (-1);
 
+	/* Register on device opened function */
+	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.open.class, &umidi20_android_method_table[0], 1))
+		return (-1);
+
+	/* Register on send function */
+	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.send.class, &umidi20_android_method_table[1], 1))
+		return (-1);
+
+	UMIDI20_RESOLVE_FUNC(send, onSend, "onSend", "([BIIJ)V");
+	
+	UMIDI20_RESOLVE_FUNC(open, onDeviceOpened, "onDeviceOpened", "(Landroid/media/midi/MidiDevice;)V");
+	UMIDI20_RESOLVE_FUNC(open, openDevice, "openDevice", "(Landroid/media/midi/MidiManager;Landroid/media/midi/MidiDeviceInfo;)V");
+	
 	UMIDI20_RESOLVE_FUNC(context, getSystemService, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
 
 	UMIDI20_RESOLVE_FUNC(MidiDevice, close, "close", "()V");
@@ -1024,14 +1053,6 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	UMIDI20_RESOLVE_FUNC(MidiSender, disconnect, "disconnect", "(Landroid/media/midi/MidiReceiver;)V");
 	UMIDI20_RESOLVE_FUNC(MidiSender, onConnect, "onConnect", "(Landroid/media/midi/MidiReceiver;)V");
 	UMIDI20_RESOLVE_FUNC(MidiSender, onDisconnect, "onDisconnect", "(Landroid/media/midi/MidiReceiver;)V");
-
-	/* Register on device opened function */
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.MidiManager_OnDeviceOpenedListener.class, &umidi20_android_method_table[0], 1))
-		return (-1);
-	
-	/* Register on send function */
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.MidiReceiver.class, &umidi20_android_method_table[1], 1))
-		return (-1);
 
 	/* basic init */
 	umidi20_MidiManager = UMIDI20_CALL(CallObjectMethod,
