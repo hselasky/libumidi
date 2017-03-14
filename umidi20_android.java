@@ -34,6 +34,7 @@ class UMidi20Recv extends MidiReceiver {
 	int devindex = 0;
 	public native void onSendNative(byte[] msg, int off, int count, int devindex);
 
+	@Override
 	public void onSend(byte[] msg, int off, int count, long ts) {
 		onSendNative(msg, off, count, devindex);
 	}
@@ -138,19 +139,38 @@ class UMidi20TxDev implements MidiManager.OnDeviceOpenedListener {
 	}
 };
 
+class UMidi20Context extends Application {
+	private Context context;
+
+	@Override
+	public onCreate() {
+	    super.onCreate();
+	    this.context = getApplicationContext();
+	}
+
+	public static Context getApplicationContext() {
+	    return this.context;
+	}
+};
+
 class UMidi20Main extends Thread {
 	public UMidi20RxDev[] rx_dev;
 	public UMidi20TxDev[] tx_dev;
 	public MidiDeviceInfo[] rx_info;
 	public MidiDeviceInfo[] tx_info;
 	public Context context;
+	public MidiManager m;
 	public native int getAction();
 	public native void setRxDevices(int num);
 	public native void setTxDevices(int num);
 	public native void storeRxDevice(int num, String desc);
 	public native void storeTxDevice(int num, String desc);
+	public UMidi20Main() {
+		start();
+	}
     	public void run() {
-	    MidiManager m = (MidiManager)context.getSystemService(Context.MIDI_SERVICE);
+	    context = UMidi20Context.getApplicationContext();
+	    m = (MidiManager)context.getSystemService(Context.MIDI_SERVICE);
 	    rx_dev = new UMidi20RxDev [16];
 	    tx_dev = new UMidi20TxDev [16];
 	    for (int i = 0; i != 16; i++) {
