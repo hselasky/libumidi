@@ -53,192 +53,51 @@ struct umidi20_parse {
 struct umidi20_android {
 	int	read_fd[2];
 	int	write_fd[2];
-	jobject output_device;
-	jobject output_port;
-	jobject input_device;
-  	jobject input_port;
 	struct umidi20_parse parse;
 };
 
-struct umidi20_class_context {
-	jclass class;
-	jmethodID getSystemService;
-};
-
-struct umidi20_class_MidiDevice {
-	jclass class;
-	jmethodID close;
-	jmethodID connectPorts;
-	jmethodID getInfo;
-	jmethodID openInputPort;
-	jmethodID openOutputPort;
-	jmethodID toString;
-};
-
-struct umidi20_class_MidiDevice_MidiConnection {
-	jclass class;
-	jmethodID close;
-};
-
-struct umidi20_class_MidiDeviceInfo {
-	jclass class;
-	jmethodID describeContents;
-	jmethodID equals;
-	jmethodID getId;
-	jmethodID getInputPortCount;
-	jmethodID getOutputPortCount;
-	jmethodID getPorts;
-  	jmethodID getProperties;
-  	jmethodID getType;
-  	jmethodID hashCode;
-	jmethodID isPrivate;
-	jmethodID toString;
-	jmethodID writeToParcel;
-};
-
-struct umidi20_class_MidiDeviceInfo_PortInfo {
-	jclass class;
-	jmethodID getName;
-  	jmethodID getPortNumber;
-  	jmethodID getType;
-};
-
-struct umidi20_class_MidiDeviceService {
-	jclass class;
-	jmethodID getDeviceInfo;
-	jmethodID getOutputPortReceivers;
-	jmethodID onBind;
-	jmethodID onClose;
-	jmethodID onCreate;
-	jmethodID onDeviceStatusChanged;
-	jmethodID onGetInputPortReceivers;
-};
-
-struct umidi20_class_MidiDeviceStatus {
+struct umidi20_class_recv {
   	jclass class;
-	jmethodID describeContents;
-	jmethodID getDeviceInfo;
-	jmethodID getOutputPortOpenCount;
-	jmethodID isInputPortOpen;
-	jmethodID toString;
-	jmethodID writeToParcel;
 };
 
-struct umidi20_class_MidiInputPort {
-	jclass class;
-	jmethodID close;
-	jmethodID getPortNumber;
-	jmethodID onFlush;
-	jmethodID onSend;
-};
-
-struct umidi20_class_MidiManager {
-	jclass class;
-	jmethodID getDevices;
-	jmethodID openBluetoothDevice;
-	jmethodID openDevice;
-	jmethodID registerDeviceCallback;
-	jmethodID unregisterDeviceCallback;
-};
-
-struct umidi20_class_MidiManager_DeviceCallback {
-	jclass class;
-	jmethodID onDeviceAdded;
-	jmethodID onDeviceRemoved;
-	jmethodID onDeviceStatusChanged;
-};
-
-struct umidi20_class_MidiManager_OnDeviceOpenedListener {
-	jclass class;
-	jmethodID onDeviceOpened;
-};
-
-struct umidi20_class_MidiOutputPort {
-	jclass class;
-	jmethodID close;
-	jmethodID getPortNumber;
-	jmethodID onConnect;
-	jmethodID onDisconnect;
-};
-
-struct umidi20_class_MidiReceiver {
-	jclass class;
-	jmethodID flush;
-	jmethodID getMaxMessageSize;
-	jmethodID onFlush;
-	jmethodID onSend;
-  	jmethodID send;
-	jmethodID sendTs;
-};
-
-struct umidi20_class_MidiSender {
+struct umidi20_class_main {
   	jclass class;
-	jmethodID connect;
-	jmethodID disconnect;
-	jmethodID onConnect;
-	jmethodID onDisconnect;
-};
-
-struct umidi20_class_open {
-  	jclass class;
-	jmethodID onDeviceOpened;
-	jmethodID openDevice;
-};
-
-struct umidi20_class_send {
-  	jclass class;
-	jmethodID onSend;
+	jmethodID start;
 };
 
 struct umidi20_class {
 	JavaVM jvm;
 	JNIEnv *env;
-	struct umidi20_class_context context;
-	struct umidi20_class_MidiDevice MidiDevice;
-	struct umidi20_class_MidiDevice_MidiConnection MidiDevice_MidiConnection;
-	struct umidi20_class_MidiDeviceInfo MidiDeviceInfo;
-	struct umidi20_class_MidiDeviceInfo_PortInfo MidiDeviceInfo_PortInfo;
-	struct umidi20_class_MidiDeviceService MidiDeviceService;
-	struct umidi20_class_MidiDeviceStatus MidiDeviceStatus;
-	struct umidi20_class_MidiInputPort MidiInputPort;
-	struct umidi20_class_MidiManager MidiManager;
-	struct umidi20_class_MidiManager_DeviceCallback MidiManager_DeviceCallback;
-	struct umidi20_class_MidiManager_OnDeviceOpenedListener MidiManager_OnDeviceOpenedListener;
-	struct umidi20_class_MidiOutputPort MidiOutputPort;
-	struct umidi20_class_MidiReceiver MidiReceiver;
-	struct umidi20_class_MidiSender MidiSender;
-	struct umidi20_class_open open;
-	struct umidi20_class_send send;
+	struct umidi20_class_recv recv;
+	struct umidi20_class_main main;
 };
 
 static struct umidi20_class umidi20_class;
-
-static jobject umidi20_MidiManager;
 
 static pthread_mutex_t umidi20_android_mtx;
 static pthread_cond_t umidi20_android_cv;
 static pthread_t umidi20_android_thread;
 static struct umidi20_android umidi20_android[UMIDI20_N_DEVICES];
 static int umidi20_android_init_done;
-static int umidi20_android_init_error;
 static const char *umidi20_android_name;
+static int umidi20_action_current;
+static int umidi20_action_busy;
 
-#define	UMIDI20_MAX_PORTS 16
+enum {
+	UMIDI20_CMD_SCAN_RX,
+	UMIDI20_CMD_SCAN_TX,
+	UMIDI20_CMD_SEND_MIDI,
+	UMIDI20_CMD_OPEN_TX,
+	UMIDI20_CMD_OPEN_RX,
+	UMIDI20_CMD_CLOSE_TX,
+	UMIDI20_CMD_CLOSE_RX,
+};
 
 #define	UMIDI20_MTOD(name, ...)	\
 	umidi20_class.env[0]->name(umidi20_class.env,## __VA_ARGS__)
 
 #define UMIDI20_CALL(ret,func,...) \
 	UMIDI20_MTOD(ret, umidi20_class.func,## __VA_ARGS__)
-
-#define	UMIDI20_ARRAY_LENGTH(obj) \
-	UMIDI20_MTOD(GetArrayLength, obj)
-
-#define	UMIDI20_ARRAY_INDEX(obj, i) \
-	UMIDI20_MTOD(GetObjectArrayElement, obj, i)
-
-#define	UMIDI20_DELETE(obj) \
-	UMIDI20_MTOD(DeleteLocalRef, obj);
 
 #define	UMIDI20_STRING_LENGTH(obj) \
 	UMIDI20_MTOD(GetStringUTFLength, obj)
@@ -292,8 +151,34 @@ umidi20_android_wakeup(void)
 }
 
 static void
-umidi20_android_on_send_callback(JNIEnv *env, jobject obj, jobject msg, int offset,
-    int count, long timestamp)
+umidi20_action_locked(int a, int b)
+{
+	while (umidi20_action_busy != 0)
+		umidi20_android_wait();
+
+	umidi20_action_busy = 1;
+	umidi20_action_current = a;
+	umidi20_android_wakeup();
+
+	while (umidi20_action_busy != 3)
+		umidi20_android_wait();
+
+	if ((a & 0xFF) == UMIDI20_CMD_SEND_MIDI) {
+	  	umidi20_action_busy = 1;
+		umidi20_action_current = b;
+		umidi20_android_wakeup();
+
+		while (umidi20_action_busy != 3)
+			umidi20_android_wait();
+	}
+
+	umidi20_action_busy = 0;
+	umidi20_android_wakeup();
+}
+
+static void
+umidi20_android_onSendNative(JNIEnv *env, jobject obj, jobject msg, int offset,
+    int count, int device)
 {
 	struct umidi20_android *puj;
 	uint8_t buffer[count];
@@ -302,16 +187,59 @@ umidi20_android_on_send_callback(JNIEnv *env, jobject obj, jobject msg, int offs
 	UMIDI20_MTOD(GetByteArrayRegion, msg, offset, count, buffer);
 	
 	umidi20_android_lock();
-	for (x = 0; x != UMIDI20_N_DEVICES; x++) {
-		puj = &umidi20_android[x];
-
-		if (puj->write_fd[1] < 0)
-			continue;
-		if (puj->input_port != obj)
-			continue;
+	puj = &umidi20_android[device];
+	if (puj->write_fd[1] >= 0)
 		write(puj->write_fd[1], buffer, count);
-	}
 	umidi20_android_unlock();
+}
+
+static jint
+umidi20_android_getAction(JNIEnv *env, jobject obj)
+{
+	jint retval;
+
+	umidi20_android_lock();
+	if (umidi20_action_busy == 2) {
+		umidi20_action_busy = 3;
+		umidi20_android_wakeup();
+	}
+	while (umidi20_action_busy != 1)
+		umidi20_android_wait();
+	retval = umidi20_action_current;
+	umidi20_action_busy = 2;
+	umidi20_android_unlock();
+
+	return (retval);
+}
+
+static char **umidi20_rx_dev_ptr;
+
+static void
+umidi20_android_setRxDevices(JNIEnv *env, jobject obj, int num)
+{
+	umidi20_android_free_inputs(umidi20_rx_dev_ptr);
+	umidi20_rx_dev_ptr = calloc(num + 1, sizeof(void *));
+}
+
+static char **umidi20_tx_dev_ptr;
+
+static void
+umidi20_android_setTxDevices(JNIEnv *env, jobject obj, int num)
+{
+	umidi20_android_free_outputs(umidi20_tx_dev_ptr);
+	umidi20_tx_dev_ptr = calloc(num + 1, sizeof(void *));
+}
+
+static void
+umidi20_android_storeRxDevice(JNIEnv *env, jobject obj, int num, jstring desc)
+{
+	umidi20_rx_dev_ptr[num] = umidi20_dup_jstring(desc);
+}
+
+static void
+umidi20_android_storeTxDevice(JNIEnv *env, jobject obj, int num, jstring desc)
+{
+	umidi20_tx_dev_ptr[num] = umidi20_dup_jstring(desc);
 }
 
 static const uint8_t umidi20_cmd_to_len[16] = {
@@ -480,27 +408,23 @@ umidi20_write_process(void *arg)
 		for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 			struct umidi20_android *puj = umidi20_android + n;
 
-			if (puj->read_fd[0] > -1) {
-				while (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
-					if (umidi20_convert_to_usb(puj, 0, data[0])) {
-						jbyteArray pkt;
+			while (puj->read_fd[0] > -1 &&
+			       read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
 
-						len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
-						if (len == 0)
-							continue;
+				/* parse MIDI stream */
+				if (umidi20_convert_to_usb(puj, 0, data[0]) == 0)
+					continue;
 
-						pkt = UMIDI20_MTOD(NewByteArray, len);
-						if (pkt == NULL)
-							continue;
+				len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
+				if (len == 0)
+					continue;
 
-						UMIDI20_MTOD(SetByteArrayRegion, pkt, 0, len, &puj->parse.temp_cmd[1]);
-
-						UMIDI20_CALL(CallVoidMethod, MidiReceiver.send, puj->output_port,
-						    pkt, 0, len);
-
-						UMIDI20_DELETE(pkt);
-					}
-				}
+				umidi20_action_locked(UMIDI20_CMD_SEND_MIDI |
+						      (n << 8) | (len << 12),
+						      (puj->parse.temp_cmd[1]) |
+						      (puj->parse.temp_cmd[2] << 8) |
+						      (puj->parse.temp_cmd[3] << 16) |
+						      (puj->parse.temp_cmd[4] << 24));
 			}
 		}
 		umidi20_android_unlock();
@@ -545,72 +469,34 @@ umidi20_android_uniq_inputs(char **ptr)
 	}
 }
 
-static const char **
-umidi20_android_alloc_devices(int is_output)
-{
-	jobject MidiDeviceInfoArray;
-	jobject MidiDeviceInfo;
-	unsigned long n;
-	unsigned long x;
-	unsigned long z;
-	char **ptr;
-
-	if (umidi20_android_init_done == 0)
-		return (0);
-
-	MidiDeviceInfoArray =
-	    UMIDI20_CALL(CallObjectMethod, MidiManager.getDevices, umidi20_MidiManager);
-
-	if (MidiDeviceInfoArray == NULL)
-		return (0);
-
-	n = UMIDI20_ARRAY_LENGTH(MidiDeviceInfoArray);
-
-	ptr = malloc(sizeof(void *) * (UMIDI20_MAX_PORTS * n + 1));
-	if (ptr == NULL) {
-	  	UMIDI20_DELETE(MidiDeviceInfoArray);
-		return (NULL);
-	}
-
-	for (z = x = 0; x != n; x++) {
-		jstring name;
-		int ports;
-		int y;
-
-		MidiDeviceInfo = UMIDI20_ARRAY_INDEX(MidiDeviceInfoArray, x);
-
-		if (is_output)
-			ports = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.getInputPortCount, MidiDeviceInfo);
-		else
-			ports = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.getOutputPortCount, MidiDeviceInfo);
-
-		if (ports > UMIDI20_MAX_PORTS)
-			ports = UMIDI20_MAX_PORTS;
-
-		name = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.toString, MidiDeviceInfo);
-		for (y = 0; y < ports; y++)
-			ptr[z++] = umidi20_dup_jstring(name);
-		UMIDI20_DELETE(name);
-	}
-	UMIDI20_DELETE(MidiDeviceInfoArray);
-
-	ptr[z] = NULL;
-
-	umidi20_android_uniq_inputs(ptr);
-
-	return ((const char **)ptr);
-}
-
 const char **
 umidi20_android_alloc_outputs(void)
 {
-	return (umidi20_android_alloc_devices(1));
+	if (umidi20_android_init_done == 0)
+		return (NULL);
+
+	umidi20_android_lock();
+	umidi20_action_locked(UMIDI20_CMD_SCAN_TX, 0);
+	umidi20_android_unlock();
+
+	umidi20_android_uniq_inputs(umidi20_tx_dev_ptr);
+
+	return (umidi20_tx_dev_ptr);
 }
 
 const char **
 umidi20_android_alloc_inputs(void)
 {
-  	return (umidi20_android_alloc_devices(0));
+	if (umidi20_android_init_done == 0)
+		return (NULL);
+
+	umidi20_android_lock();
+	umidi20_action_locked(UMIDI20_CMD_SCAN_RX, 0);
+	umidi20_android_unlock();
+
+	umidi20_android_uniq_inputs(umidi20_rx_dev_ptr);
+
+	return (umidi20_rx_dev_ptr);
 }
 
 void
@@ -641,156 +527,11 @@ umidi20_android_free_inputs(const char **ports)
 	free(ports);
 }
 
-static int
-umidi20_android_compare_dev_string(jstring str, const char *name, int *pidx)
-{
-	char *ptr;
-	char *tmp;
-	char *cpy;
-	int which;
-
-	ptr = umidi20_dup_jstring(str);
-	if (ptr == NULL)
-		return (0);
-
-	tmp = strchr(ptr, '#');
-	if (tmp != NULL)
-		*tmp = 0;
-
-	cpy = strdup(name);
-	if (cpy == NULL) {
-		free(ptr);
-		return (0);
-	}
-	tmp = strchr(cpy, '#');
-	if (tmp != NULL) {
-		which = atoi(tmp + 1);
-		*tmp = 0;
-	} else {
-		which = 0;
-	}
-
-	if (strcmp(ptr, cpy) == 0) {
-		if (*pidx == which) {
-			(*pidx)++;
-			free(ptr);
-			free(cpy);
-			return (1);
-		}
-		(*pidx)++;
-	}
-	free(ptr);
-	free(cpy);
-	return (0);
-}
-
-static jobject umidi20_device;
-
-static void
-umidi20_android_open_device_callback(JNIEnv *env, jobject obj, jobject device)
-{
-	umidi20_android_lock();
-	umidi20_device = device;
-	umidi20_android_wakeup();
-	umidi20_android_unlock();
-}
-
-static int
-umidi20_android_open_device(int is_tx, const char *devname, jobject *pdev, jobject *pport)
-{
-  	struct umidi20_android *puj;
-	jstring name = NULL;
-	jobject MidiDeviceInfoArray;
-	jobject MidiDeviceInfo;
-	unsigned long n;
-	unsigned long x;
-	int index = 0;
-	int retval = 0;
-
-	*pdev = NULL;
-	*pport = NULL;
-
-	if (umidi20_android_init_done == 0)
-		return (retval);
-
-	MidiDeviceInfoArray =
-	    UMIDI20_CALL(CallObjectMethod, MidiManager.getDevices, umidi20_MidiManager);
-
-	if (MidiDeviceInfoArray == NULL)
-		return (retval);
-
-	n = UMIDI20_ARRAY_LENGTH(MidiDeviceInfoArray);
-
-	for (x = 0; x != n; x++) {
-		int ports;
-		int y;
-
-		MidiDeviceInfo = UMIDI20_ARRAY_INDEX(MidiDeviceInfoArray, x);
-
-		if (is_tx)
-			ports = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.getInputPortCount, MidiDeviceInfo);
-		else
-			ports = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.getOutputPortCount, MidiDeviceInfo);
-
-		if (ports > UMIDI20_MAX_PORTS)
-			ports = UMIDI20_MAX_PORTS;
-
-		name = UMIDI20_CALL(CallIntMethod, MidiDeviceInfo.toString, MidiDeviceInfo);
-		for (y = 0; y < ports; y++) {
-			if (umidi20_android_compare_dev_string(name, devname, &index)) {
-				umidi20_android_lock();
-				umidi20_device = (jobject)-1UL;
-				UMIDI20_CALL(CallVoidMethod, open.openDevice, umidi20_MidiManager, MidiDeviceInfo);
-				while (umidi20_device == (jobject)-1UL)
-					umidi20_android_wait();
-				umidi20_android_unlock();
-
-				if (umidi20_device == NULL)
-					goto done;
-
-				*pdev = umidi20_device;
-				if (is_tx)
-					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice.openInputPort, *pdev, y);
-				else
-					*pport = UMIDI20_CALL(CallObjectMethod, MidiDevice.openOutputPort, *pdev, y);
-				if (*pport == NULL) {
-					UMIDI20_CALL(CallVoidMethod, MidiDevice.close, *pdev);
-					UMIDI20_DELETE(*pdev);
-					*pdev = NULL;
-					goto done;
-				}
-				retval = 1;
-				goto done;
-			}
-		}
-		UMIDI20_DELETE(name);
-	}
-	UMIDI20_DELETE(MidiDeviceInfoArray);
-	return (retval);
-done:
-	UMIDI20_DELETE(name);
-	UMIDI20_DELETE(MidiDeviceInfoArray);
-	return (retval);
-}
-
-static void
-umidi20_android_close_device(int is_tx, jobject pdev, jobject pport)
-{
-	if (is_tx) {
-		UMIDI20_CALL(CallVoidMethod, MidiInputPort.close, pport);
-		UMIDI20_CALL(CallVoidMethod, MidiDevice.close, pdev);
-	} else {
-		UMIDI20_CALL(CallVoidMethod, MidiOutputPort.close, pport);
-		UMIDI20_CALL(CallVoidMethod, MidiDevice.close, pdev);
-	}
-	UMIDI20_DELETE(pport);
-	UMIDI20_DELETE(pdev);
-}
-
 int
 umidi20_android_rx_open(uint8_t n, const char *name)
 {
 	struct umidi20_android *puj;
+	unsigned long x;
 	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_android_init_done == 0)
@@ -799,21 +540,29 @@ umidi20_android_rx_open(uint8_t n, const char *name)
 	puj = &umidi20_android[n];
 
 	/* check if already opened */
-	if (puj->write_fd[1] > -1 || puj->write_fd[0] > -1)
+	if (puj->write_fd[1] > -1 || puj->write_fd[0] > -1 || umidi20_rx_dev_ptr == NULL)
 		return (-1);
 
-	if (umidi20_android_open_device(0, name, &puj->input_device, &puj->input_port) == 0)
+	for (x = 0; umidi20_rx_dev_ptr[x] != NULL; x++) {
+		if (strcmp(umidi20_rx_dev_ptr[x], name) == 0)
+			break;
+	}
+
+	/* check if device not found */
+	if (umidi20_rx_dev_ptr[x] == NULL)
 		return (-1);
 
-	/* create looback pipe */
 	umidi20_android_lock();
+	umidi20_action_locked(UMIDI20_CMD_OPEN_RX | (n << 8) | (x << 12), 0);
+	/* create looback pipe */
 	error = umidi20_pipe(puj->write_fd);
+	/* check for error */
+	if (error != 0) {
+		umidi20_action_locked(UMIDI20_CMD_CLOSE_RX | (n << 8) | (x << 12), 0);
+		puj->write_fd[0] = -1;
+	}
 	umidi20_android_unlock();
 
-	if (error) {
-		umidi20_android_close_device(0, puj->input_device, puj->input_port);
-		return (-1);
-	}
 	return (puj->write_fd[0]);
 }
 
@@ -821,6 +570,7 @@ int
 umidi20_android_tx_open(uint8_t n, const char *name)
 {
 	struct umidi20_android *puj;
+	unsigned long x;
 	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_android_init_done == 0)
@@ -829,24 +579,29 @@ umidi20_android_tx_open(uint8_t n, const char *name)
 	puj = &umidi20_android[n];
 
 	/* check if already opened */
-	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1)
+	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1 || umidi20_tx_dev_ptr == NULL)
 		return (-1);
 
-	if (umidi20_android_open_device(1, name, &puj->output_device, &puj->output_port) == 0)
+	for (x = 0; umidi20_tx_dev_ptr[x] != NULL; x++) {
+		if (strcmp(umidi20_tx_dev_ptr[x], name) == 0)
+			break;
+	}
+
+	/* check if device not found */
+	if (umidi20_tx_dev_ptr[x] == NULL)
 		return (-1);
+
+	umidi20_android_lock();
+	umidi20_action_locked(UMIDI20_CMD_OPEN_TX | (n << 8) | (x << 12), 0);
 
 	/* create looback pipe */
-	umidi20_android_lock();
 	error = umidi20_pipe(puj->read_fd);
 	if (error == 0) {
 		fcntl(puj->read_fd[0], F_SETFL, (int)O_NONBLOCK);
 		memset(&puj->parse, 0, sizeof(puj->parse));
-	}
-	umidi20_android_unlock();
-
-	if (error) {
-		umidi20_android_close_device(1, puj->output_device, puj->output_port);
-		return (-1);
+	} else {
+		umidi20_action_locked(UMIDI20_CMD_CLOSE_TX | (n << 8) | (x << 12), 0);
+		puj->read_fd[1] = -1;
 	}
 	return (puj->read_fd[1]);
 }
@@ -866,9 +621,8 @@ umidi20_android_rx_close(uint8_t n)
 	close(puj->write_fd[1]);
 	puj->write_fd[0] = -1;
 	puj->write_fd[1] = -1;
+	umidi20_action_locked(UMIDI20_CMD_CLOSE_RX | (n << 8), 0);
 	umidi20_android_unlock();
-
-	umidi20_android_close_device(0, puj->input_device, puj->input_port);
 
 	return (0);
 }
@@ -888,9 +642,8 @@ umidi20_android_tx_close(uint8_t n)
 	close(puj->read_fd[1]);
 	puj->read_fd[0] = -1;
 	puj->read_fd[1] = -1;
+	umidi20_action_locked(UMIDI20_CMD_CLOSE_TX | (n << 8), 0);
 	umidi20_android_unlock();
-
-	umidi20_android_close_device(1, puj->output_device, puj->output_port);
 
 	return (0);
 }
@@ -903,35 +656,59 @@ umidi20_android_find_class(const char *name)
 	class = UMIDI20_MTOD(FindClass, name);
 	if (class == NULL) {
 		DPRINTF("Class %s not found\n");
-		umidi20_android_init_error = 1;
+	} else {
+		class = UMIDI20_MTOD(NewGlobalRef, class);
+		UMIDI20_MTOD(DeleteLocalRef, class);
 	}
 	return (class);
 }
 
 #define	UMIDI20_RESOLVE_CLASS(name, str) \
-	umidi20_class.name.class = umidi20_android_find_class(str)
+	(umidi20_class.name.class = umidi20_android_find_class(str))
 
-static void
-umidi20_android_find_func(jclass class, jmethodID *out, const char *name,
-    const char *args)
+JNIEXPORT jint
+JNI_OnLoad(JavaVM *jvm, void *reserved)
 {
-	jmethodID mtod;
+	static const JNINativeMethod recv[] = {
+		{ "onSendNative", "([BIII)V", (void *)&umidi20_android_onSendNative },
+	};
+	static const JNINativeMethod main[] = {
+		{ "getAction", "()I", (void *)&umidi20_android_getAction },
+		{ "setRxDevices", "(I)V", (void *)&umidi20_android_setRxDevices },
+		{ "setTxDevices", "(I)V", (void *)&umidi20_android_setTxDevices },
+		{ "storeRxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeRxDevice },
+		{ "storeTxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeTxDevice },
+	};
+	JNIEnv *env;
 
-	mtod = UMIDI20_MTOD(GetMethodID, class, name, args);
-	if (mtod == NULL) {
-		DPRINTF("Method %s not found\n", name);
-		umidi20_android_init_error = 1;
-	}
-	*out = mtod;
+	if (jvm[0]->GetEnv(jvm, &env, JNI_VERSION_1_6) != JNI_OK)
+		return (JNI_ERR);
+
+	umidi20_class.env = env;
+	umidi20_class.jvm = jvm;
+
+	pthread_mutex_init(&umidi20_android_mtx, NULL);
+	pthread_cond_init(&umidi20_android_cv, NULL);
+
+	if (UMIDI20_RESOLVE_CLASS(recv, "org/selasky/umidi20/UMidi20Recv") == NULL ||
+	    UMIDI20_RESOLVE_CLASS(main, "org/selasky/umidi20/UMidi20Main") == NULL)
+		return (JNI_ERR);
+
+	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.recv.class,
+			 &recv[0], sizeof(recv) / sizeof(recv[0])))
+		return (JNI_ERR);
+
+	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.main.class,
+			 &main[0], sizeof(main) / sizeof(main[0])))
+		return (JNI_ERR);
+
+	umidi20_class.main.start = UMIDI20_MTOD(GetMethodID,
+	    umidi20_class.main.class, "start", "()V");
+	if (umidi20_class.main.start == NULL)
+		return (JNI_ERR);
+
+	return (JNI_VERSION_1_6);
 }
-
-#define	UMIDI20_RESOLVE_FUNC(field,func,name,type) \
-	umidi20_android_find_func(umidi20_class.field.class, &umidi20_class.field.func, name, type)
-
-static const JNINativeMethod umidi20_android_method_table[] = {
-	{ "onDeviceOpened", "(Landroid/media/midi/MidiDevice;)V", (void *)umidi20_android_open_device_callback },
-	{ "onSend", "([BIIJ)V", (void *)umidi20_android_on_send_callback },
-};
 
 int
 umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
@@ -939,125 +716,12 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	struct umidi20_android *puj;
 	char devname[64];
 	uint8_t n;
+	jobject obj;
 
 	umidi20_android_name = strdup(name);
-	if (umidi20_android_name == NULL)
-		return (-1);
 
-	pthread_mutex_init(&umidi20_android_mtx, NULL);
-	pthread_cond_init(&umidi20_android_cv, NULL);
-
-	umidi20_class.env = parent_env;
-	umidi20_class.jvm = parent_jvm;
-
-	UMIDI20_RESOLVE_CLASS(context, "android/content/Context");
-	UMIDI20_RESOLVE_CLASS(MidiDevice, "android/media/midi/MidiDevice");
-	UMIDI20_RESOLVE_CLASS(MidiDevice_MidiConnection, "android/media/midi/MidiDevice$MidiConnection");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo, "android/media/midi/MidiDeviceInfo");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceInfo_PortInfo, "android/media/midi/MidiDeviceInfo$PortInfo");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceService, "android/media/midi/MidiDeviceService");
-	UMIDI20_RESOLVE_CLASS(MidiDeviceStatus, "android/media/midi/MidiDeviceStatus");
-	UMIDI20_RESOLVE_CLASS(MidiManager, "android/media/midi/MidiManager");
-	UMIDI20_RESOLVE_CLASS(MidiManager_DeviceCallback, "android/media/midi/MidiManager$DeviceCallback");
-	UMIDI20_RESOLVE_CLASS(MidiManager_OnDeviceOpenedListener, "android/media/midi/MidiManager$OnDeviceOpenedListener");
-	UMIDI20_RESOLVE_CLASS(MidiInputPort, "android/media/midi/MidiInputPort");
-	UMIDI20_RESOLVE_CLASS(MidiOutputPort, "android/media/midi/MidiOutputPort");
-	UMIDI20_RESOLVE_CLASS(MidiReceiver, "android/media/midi/MidiReceiver");
-	UMIDI20_RESOLVE_CLASS(MidiSender, "android/media/midi/MidiSender");
-
-	/* local classes */
-	UMIDI20_RESOLVE_CLASS(open, "umidi20_android$open");
-	UMIDI20_RESOLVE_CLASS(send, "umidi20_android$send");
-
-	if (umidi20_android_init_error != 0)
-		return (-1);
-
-	/* Register on device opened function */
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.open.class, &umidi20_android_method_table[0], 1))
-		return (-1);
-
-	/* Register on send function */
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.send.class, &umidi20_android_method_table[1], 1))
-		return (-1);
-
-	UMIDI20_RESOLVE_FUNC(send, onSend, "onSend", "([BIIJ)V");
-	
-	UMIDI20_RESOLVE_FUNC(open, onDeviceOpened, "onDeviceOpened", "(Landroid/media/midi/MidiDevice;)V");
-	UMIDI20_RESOLVE_FUNC(open, openDevice, "openDevice", "(Landroid/media/midi/MidiManager;Landroid/media/midi/MidiDeviceInfo;)V");
-	
-	UMIDI20_RESOLVE_FUNC(context, getSystemService, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
-
-	UMIDI20_RESOLVE_FUNC(MidiDevice, close, "close", "()V");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, connectPorts, "connectPorts", "(Landroid/media/midi/MidiInputPort;I)Landroid/media/midi/MidiDevice$MidiConnection;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, getInfo, "getInfo", "()Landroid/media/midi/MidiDeviceInfo;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, openInputPort, "openInputPort", "(I)Landroid/media/midi/MidiInputPort;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, openOutputPort, "openOutputPort", "(I)Landroid/media/midi/MidiOutputPort;");
-	UMIDI20_RESOLVE_FUNC(MidiDevice, toString, "toString", "()Ljava/lang/String;");
-
-	UMIDI20_RESOLVE_FUNC(MidiDevice_MidiConnection, close, "close", "()V");
-
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, describeContents, "describeContents", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, equals, "equals", "(Ljava/lang/Object;)Z");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getId, "getId", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getInputPortCount, "getInputPortCount", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getOutputPortCount, "getOutputPortCount", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getPorts, "getPorts", "()[Landroid/media/midi/MidiDeviceInfo$PortInfo;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getProperties, "getProperties", "()Landroid/os/Bundle;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, getType, "getType", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, hashCode, "hashCode", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, isPrivate, "isPrivate", "()Z");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, toString, "toString", "()Ljava/lang/String;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo, writeToParcel, "writeToParcel", "(Landroid/os/Parcel;I)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getName, "getName", "()Ljava/lang/String;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getPortNumber, "getPortNumber", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceInfo_PortInfo, getType, "getType", "()I");
-
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, describeContents, "describeContents", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, getDeviceInfo, "getDeviceInfo", "()Landroid/media/midi/MidiDeviceInfo;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, getOutputPortOpenCount, "getOutputPortOpenCount", "(I)I");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, isInputPortOpen, "isInputPortOpen", "(I)Z");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, toString, "toString", "()Ljava/lang/String;");
-	UMIDI20_RESOLVE_FUNC(MidiDeviceStatus, writeToParcel, "writeToParcel", "(Landroid/os/Parcel;I)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiInputPort, close, "close", "()V");
-	UMIDI20_RESOLVE_FUNC(MidiInputPort, getPortNumber, "getPortNumber", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiInputPort, onFlush, "onFlush", "()V");
-	UMIDI20_RESOLVE_FUNC(MidiInputPort, onSend, "onSend", "([BIIJ)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiManager, getDevices, "getDevices", "()[Landroid/media/midi/MidiDeviceInfo;");
-	UMIDI20_RESOLVE_FUNC(MidiManager, openBluetoothDevice, "openBluetoothDevice", "(Landroid/bluetooth/BluetoothDevice;Landroid/media/midi/MidiManager$OnDeviceOpenedListener;Landroid/os/Handler;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager, openDevice, "openDevice", "(Landroid/media/midi/MidiDeviceInfo;Landroid/media/midi/MidiManager$OnDeviceOpenedListener;Landroid/os/Handler;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager, registerDeviceCallback, "registerDeviceCallback", "(Landroid/media/midi/MidiManager$DeviceCallback;Landroid/os/Handler;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager, unregisterDeviceCallback, "unregisterDeviceCallback", "(Landroid/media/midi/MidiManager$DeviceCallback;)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceAdded, "onDeviceAdded", "(Landroid/media/midi/MidiDeviceInfo;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceRemoved, "onDeviceRemoved", "(Landroid/media/midi/MidiDeviceInfo;)V");
-	UMIDI20_RESOLVE_FUNC(MidiManager_DeviceCallback, onDeviceStatusChanged, "onDeviceStatusChanged", "(Landroid/media/midi/MidiDeviceStatus;)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiManager_OnDeviceOpenedListener, onDeviceOpened, "onDeviceOpened", "(Landroid/media/midi/MidiDevice;)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiOutputPort, close, "close", "()V");
-	UMIDI20_RESOLVE_FUNC(MidiOutputPort, getPortNumber, "getPortNumber", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onConnect, "onConnect", "(Landroid/media/midi/MidiReceiver;)V");
-	UMIDI20_RESOLVE_FUNC(MidiOutputPort, onDisconnect, "onDisconnect", "(Landroid/media/midi/MidiReceiver;)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiReceiver, flush, "flush", "()V");
-	UMIDI20_RESOLVE_FUNC(MidiReceiver, getMaxMessageSize, "getMaxMessageSize", "()I");
-	UMIDI20_RESOLVE_FUNC(MidiReceiver, onFlush, "onFlush", "()V");
-	UMIDI20_RESOLVE_FUNC(MidiReceiver, onSend, "onSend", "([BIIJ)V");
-	UMIDI20_RESOLVE_FUNC(MidiReceiver, send, "send", "([BII)V");
-	UMIDI20_RESOLVE_FUNC(MidiReceiver, sendTs, "send", "([BIIJ)V");
-
-	UMIDI20_RESOLVE_FUNC(MidiSender, connect, "connect", "(Landroid/media/midi/MidiReceiver;)V");
-	UMIDI20_RESOLVE_FUNC(MidiSender, disconnect, "disconnect", "(Landroid/media/midi/MidiReceiver;)V");
-	UMIDI20_RESOLVE_FUNC(MidiSender, onConnect, "onConnect", "(Landroid/media/midi/MidiReceiver;)V");
-	UMIDI20_RESOLVE_FUNC(MidiSender, onDisconnect, "onDisconnect", "(Landroid/media/midi/MidiReceiver;)V");
-
-	/* basic init */
-	umidi20_MidiManager = UMIDI20_CALL(CallObjectMethod,
-	    context.getSystemService, NULL, "midi");
-	if (umidi20_MidiManager == NULL)
+	if (umidi20_android_name == NULL || umidi20_class.env == NULL ||
+	    umidi20_class.jvm == NULL)
 		return (-1);
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
@@ -1072,6 +736,13 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	    &umidi20_write_process, NULL))
 		return (-1);
 
+	obj = UMIDI20_MTOD(AllocObject, umidi20_class.main.class);
+	if (obj == NULL)
+		return (-1);
+	obj = UMIDI20_MTOD(NewGlobalRef, obj);
+	UMIDI20_MTOD(DeleteLocalRef, obj);
+	UMIDI20_CALL(CallVoidMethod, main.start, obj);
+	
 	umidi20_android_init_done = 1;
 
 	return (0);
