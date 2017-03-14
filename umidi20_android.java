@@ -27,6 +27,7 @@ package org.selasky.umidi20;
 
 import android.media.midi.*;
 import android.content.*;
+import android.app.*;
 import android.os.*;
 import java.lang.*;
 
