@@ -63,6 +63,7 @@ class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
 
 	public void closeDevice() {
 		if (opened != 0) {
+			outp.disconnect(recv);
 			try {
 				outp.close();
 			}
