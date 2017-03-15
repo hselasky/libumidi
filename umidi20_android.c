@@ -653,24 +653,24 @@ umidi20_android_tx_close(uint8_t n)
 }
 
 static jclass
-umidi20_android_find_class(const char *name)
+umidi20_android_find_class(JNIEnv *env, const char *name)
 {
 	jclass class;
 
-	class = UMIDI20_MTOD(FindClass, name);
+	class = UMIDI20_MTOD(env, FindClass, name);
 	if (class == NULL) {
 		DPRINTF("Class %s not found\n");
 	} else {
 		jclass nclass;
-		nclass = UMIDI20_MTOD(NewGlobalRef, class);
-		UMIDI20_MTOD(DeleteLocalRef, class);
+		nclass = UMIDI20_MTOD(env, NewGlobalRef, class);
+		UMIDI20_MTOD(env, DeleteLocalRef, class);
 		class = nclass;
 	}
 	return (class);
 }
 
-#define	UMIDI20_RESOLVE_CLASS(name, str) \
-	(umidi20_class.name.class = umidi20_android_find_class(str))
+#define	UMIDI20_RESOLVE_CLASS(env, name, str)	\
+	(umidi20_class.name.class = umidi20_android_find_class(env, str))
 
 JNIEXPORT jint
 JNI_OnLoad(JavaVM *jvm, void *reserved)
@@ -692,35 +692,33 @@ JNI_OnLoad(JavaVM *jvm, void *reserved)
 	if (jvm[0]->GetEnv(jvm, &env, JNI_VERSION_1_6) != JNI_OK)
 		return (JNI_ERR);
 
-	umidi20_class.env = env;
-	umidi20_class.jvm = jvm;
-
 	pthread_mutex_init(&umidi20_android_mtx, NULL);
 	pthread_cond_init(&umidi20_android_cv, NULL);
 
-	if (UMIDI20_RESOLVE_CLASS(recv, "org/selasky/umidi20/UMidi20Recv") == NULL ||
-	    UMIDI20_RESOLVE_CLASS(main, "org/selasky/umidi20/UMidi20Main") == NULL)
+	if (UMIDI20_RESOLVE_CLASS(env, recv, "org/selasky/umidi20/UMidi20Recv") == NULL ||
+	    UMIDI20_RESOLVE_CLASS(env, main, "org/selasky/umidi20/UMidi20Main") == NULL)
 		return (JNI_ERR);
 
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.recv.class,
+	if (UMIDI20_MTOD(env, RegisterNatives, umidi20_class.recv.class,
 			 &recv[0], sizeof(recv) / sizeof(recv[0])))
 		return (JNI_ERR);
 
-	if (UMIDI20_MTOD(RegisterNatives, umidi20_class.main.class,
+	if (UMIDI20_MTOD(env, RegisterNatives, umidi20_class.main.class,
 			 &main[0], sizeof(main) / sizeof(main[0])))
 		return (JNI_ERR);
 
-	umidi20_class.main.constructor = UMIDI20_MTOD(GetMethodID,
+	umidi20_class.main.constructor = UMIDI20_MTOD(env, GetMethodID,
 	    umidi20_class.main.class, "<init>", "()V");
 	if (umidi20_class.main.constructor == NULL)
 		return (JNI_ERR);
 
-	obj = UMIDI20_MTOD(NewObject, umidi20_class.main.class, umidi20_class.main.constructor);
+	obj = UMIDI20_MTOD(env, NewObject, umidi20_class.main.class,
+	    umidi20_class.main.constructor);
 	if (obj == NULL)
 		return (JNI_ERR);
 
-	UMIDI20_MTOD(NewGlobalRef, obj);
-	UMIDI20_MTOD(DeleteLocalRef, obj);
+	UMIDI20_MTOD(env, NewGlobalRef, obj);
+	UMIDI20_MTOD(env, DeleteLocalRef, obj);
 
 	umidi20_android_register_done = 1;
 
