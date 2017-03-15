@@ -474,6 +474,24 @@ umidi20_android_uniq_inputs(char **ptr)
 }
 
 const char **
+umidi20_android_dup_io(const char **ppstr)
+{
+	unsigned long n = 0;
+	char **retval;
+	
+
+	for (n = 0; ppstr[n] != NULL; n++)
+		;
+
+	retval = calloc(n + 1, sizeof(void *));
+	if (retval != NULL) {
+		for (n = 0; ppstr[n] != NULL; n++)
+			retval[n] = strdup(ppstr[n]);
+	}
+	return (retval);
+}
+
+const char **
 umidi20_android_alloc_outputs(void)
 {
 	if (umidi20_android_init_done == 0)
@@ -485,7 +503,7 @@ umidi20_android_alloc_outputs(void)
 
 	umidi20_android_uniq_inputs(umidi20_tx_dev_ptr);
 
-	return (umidi20_tx_dev_ptr);
+	return (umidi20_android_dup_io(umidi20_tx_dev_ptr));
 }
 
 const char **
@@ -500,7 +518,7 @@ umidi20_android_alloc_inputs(void)
 
 	umidi20_android_uniq_inputs(umidi20_rx_dev_ptr);
 
-	return (umidi20_rx_dev_ptr);
+	return (umidi20_android_dup_io(umidi20_rx_dev_ptr));
 }
 
 void
