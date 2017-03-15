@@ -140,20 +140,6 @@ class UMidi20TxDev implements MidiManager.OnDeviceOpenedListener {
 	}
 };
 
-class UMidi20Context extends Application {
-	private Context context;
-
-	@Override
-	public onCreate() {
-	    super.onCreate();
-	    this.context = getApplicationContext();
-	}
-
-	public static Context getApplicationContext() {
-	    return this.context;
-	}
-};
-
 class UMidi20Main extends Thread {
 	public UMidi20RxDev[] rx_dev;
 	public UMidi20TxDev[] tx_dev;
@@ -161,7 +147,8 @@ class UMidi20Main extends Thread {
 	public MidiDeviceInfo[] tx_info;
 	public Context context;
 	public MidiManager m;
-	public native int getAction();
+    	public native int getAction();
+	public native Activity getActivity();
 	public native void setRxDevices(int num);
 	public native void setTxDevices(int num);
 	public native void storeRxDevice(int num, String desc);
@@ -170,13 +157,6 @@ class UMidi20Main extends Thread {
 		start();
 	}
     	public void run() {
-	    context = UMidi20Context.getApplicationContext();
-	    m = (MidiManager)context.getSystemService(Context.MIDI_SERVICE);
-	    rx_dev = new UMidi20RxDev [16];
-	    tx_dev = new UMidi20TxDev [16];
-	    for (int i = 0; i != 16; i++) {
-			rx_dev[i].recv.devindex = i;
-	    }
 	    while (true) {
 		int action = getAction();
 		int n;
@@ -242,6 +222,14 @@ class UMidi20Main extends Thread {
 			break;
 		case 6:
 			rx_dev[(action >> 8) & 0xF].closeDevice();
+			break;
+		case 7:
+			context = getActivity().getApplicationContext();
+			m = (MidiManager)context.getSystemService(Context.MIDI_SERVICE);
+			rx_dev = new UMidi20RxDev [16];
+			tx_dev = new UMidi20TxDev [16];
+			for (int i = 0; i != 16; i++)
+				rx_dev[i].recv.devindex = i;
 			break;
 		default:
 			break;

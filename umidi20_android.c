@@ -62,12 +62,13 @@ struct umidi20_class_recv {
 
 struct umidi20_class_main {
   	jclass class;
-	jmethodID start;
+	jmethodID constructor;
 };
 
 struct umidi20_class {
 	JavaVM jvm;
 	JNIEnv *env;
+	void *activity;
 	struct umidi20_class_recv recv;
 	struct umidi20_class_main main;
 };
@@ -91,6 +92,7 @@ enum {
 	UMIDI20_CMD_OPEN_RX,
 	UMIDI20_CMD_CLOSE_TX,
 	UMIDI20_CMD_CLOSE_RX,
+	UMIDI20_CMD_INITIALIZE,
 };
 
 #define	UMIDI20_MTOD(name, ...)	\
@@ -191,6 +193,12 @@ umidi20_android_onSendNative(JNIEnv *env, jobject obj, jobject msg, int offset,
 	if (puj->write_fd[1] >= 0)
 		write(puj->write_fd[1], buffer, count);
 	umidi20_android_unlock();
+}
+
+static jobject
+umidi20_android_getActivity(JNIEnv *env, jobject obj)
+{
+	return (umidi20_class.activity);
 }
 
 static jint
@@ -674,12 +682,14 @@ JNI_OnLoad(JavaVM *jvm, void *reserved)
 	};
 	static const JNINativeMethod main[] = {
 		{ "getAction", "()I", (void *)&umidi20_android_getAction },
+		{ "getActivity", "()Landroid/app/Activity;", (void *)&umidi20_android_getActivity },
 		{ "setRxDevices", "(I)V", (void *)&umidi20_android_setRxDevices },
 		{ "setTxDevices", "(I)V", (void *)&umidi20_android_setTxDevices },
 		{ "storeRxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeRxDevice },
 		{ "storeTxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeTxDevice },
 	};
 	JNIEnv *env;
+	jobject obj;
 
 	if (jvm[0]->GetEnv(jvm, &env, JNI_VERSION_1_6) != JNI_OK)
 		return (JNI_ERR);
@@ -702,26 +712,32 @@ JNI_OnLoad(JavaVM *jvm, void *reserved)
 			 &main[0], sizeof(main) / sizeof(main[0])))
 		return (JNI_ERR);
 
-	umidi20_class.main.start = UMIDI20_MTOD(GetMethodID,
-	    umidi20_class.main.class, "start", "()V");
-	if (umidi20_class.main.start == NULL)
+	umidi20_class.main.constructor = UMIDI20_MTOD(GetMethodID,
+	    umidi20_class.main.class, "<init>", "()V");
+	if (umidi20_class.main.constructor == NULL)
 		return (JNI_ERR);
 
+	obj = UMIDI20_MTOD(NewObject, umidi20_class.main.class, umidi20_class.main.constructor);
+	if (obj == NULL)
+		return (JNI_ERR);
+
+	UMIDI20_MTOD(NewGlobalRef, obj);
+	UMIDI20_MTOD(DeleteLocalRef, obj);
+	
 	return (JNI_VERSION_1_6);
 }
 
 int
-umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
+umidi20_android_init(const char *name, void *activity)
 {
 	struct umidi20_android *puj;
 	char devname[64];
 	uint8_t n;
-	jobject obj;
 
 	umidi20_android_name = strdup(name);
 
 	if (umidi20_android_name == NULL || umidi20_class.env == NULL ||
-	    umidi20_class.jvm == NULL)
+	    umidi20_class.jvm == NULL || activity == NULL)
 		return (-1);
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
@@ -736,13 +752,12 @@ umidi20_android_init(const char *name, void *parent_jvm, const void *parent_env)
 	    &umidi20_write_process, NULL))
 		return (-1);
 
-	obj = UMIDI20_MTOD(AllocObject, umidi20_class.main.class);
-	if (obj == NULL)
-		return (-1);
-	obj = UMIDI20_MTOD(NewGlobalRef, obj);
-	UMIDI20_MTOD(DeleteLocalRef, obj);
-	UMIDI20_CALL(CallVoidMethod, main.start, obj);
-	
+	umidi20_class.activity = activity;
+
+	umidi20_android_lock();
+	umidi20_action_locked(UMIDI20_CMD_INITIALIZE, 0);
+	umidi20_android_unlock();
+
 	umidi20_android_init_done = 1;
 
 	return (0);
