@@ -50,6 +50,10 @@ class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
 	MidiOutputPort outp = null;
 	int opened = 0;
 
+	public UMidi20RxDev(int index) {
+		recv = new UMidi20Recv(index);
+	}
+    
 	public void onDeviceOpened(MidiDevice _dev) {
 		dev = _dev;
 	}
@@ -185,14 +189,14 @@ class UMidi20Main extends Thread {
 			tx_info = m.getDevices();
 			n = 0;
 			for (int i = 0; i != tx_info.length; i++) {
-			    for (int j = 0; j != tx_info[i].getOutputPortCount(); j++) {
+			    for (int j = 0; j != tx_info[i].getInputPortCount(); j++) {
 				n++;
 			    }
 			}
 			setTxDevices(n);
 			n = 0;
 			for (int i = 0; i != tx_info.length; i++) {
-			    for (int j = 0; j != tx_info[i].getOutputPortCount(); j++) {
+			    for (int j = 0; j != tx_info[i].getInputPortCount(); j++) {
 				storeTxDevice(n++, tx_info[i].toString());
 			    }
 			}
@@ -213,7 +217,7 @@ class UMidi20Main extends Thread {
 		case 4:
 			n = (action >> 12);
 			for (int i = 0; i != rx_info.length; i++) {
-			    for (int j = 0; j != rx_info[i].getOutputPortCount(); j++) {
+			    for (int j = 0; j != rx_info[i].getInputPortCount(); j++) {
 				if (n == 0)
 				    rx_dev[(action >> 8) & 0xF].openDevice(m, rx_info[i], j);
 				n--;
@@ -231,8 +235,10 @@ class UMidi20Main extends Thread {
 			m = (MidiManager)context.getSystemService(Context.MIDI_SERVICE);
 			rx_dev = new UMidi20RxDev [16];
 			tx_dev = new UMidi20TxDev [16];
-			for (int i = 0; i != 16; i++)
-				rx_dev[i].recv = new UMidi20Recv(i);
+			for (int i = 0; i != 16; i++) {
+				rx_dev[i] = new UMidi20RxDev(i);
+				tx_dev[i] = new UMidi20TxDev();
+			}
 			break;
 		default:
 			break;
