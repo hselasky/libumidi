@@ -163,6 +163,12 @@ class UMidi20Main extends Thread {
 	public UMidi20Main() {
 		start();
 	}
+	public String getDescription(MidiDeviceInfo info) {
+		Bundle properties = info.getProperties();
+		String manufacturer = properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER).trim();
+		String product = properties.getString(MidiDeviceInfo.PROPERTY_PRODUCT).trim();
+		return (manufacturer + " - " + product).replace("|", "");
+	}
     	public void run() {
 	    while (true) {
 		int action = getAction();
@@ -181,7 +187,7 @@ class UMidi20Main extends Thread {
 			n = 0;
 			for (int i = 0; i != rx_info.length; i++) {
 			    for (int j = 0; j != rx_info[i].getOutputPortCount(); j++) {
-				storeRxDevice(n++, rx_info[i].toString());
+				storeRxDevice(n++, getDescription(rx_info[i]));
 			    }
 			}
 			break;
@@ -197,7 +203,7 @@ class UMidi20Main extends Thread {
 			n = 0;
 			for (int i = 0; i != tx_info.length; i++) {
 			    for (int j = 0; j != tx_info[i].getInputPortCount(); j++) {
-				storeTxDevice(n++, tx_info[i].toString());
+				storeTxDevice(n++, getDescription(tx_info[i]));
 			    }
 			}
 			break;
