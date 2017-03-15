@@ -204,6 +204,10 @@ class UMidi20Main extends Thread {
 
 		switch (action & 0xFF) {
 		case 0:
+			if (m == null) {
+				setRxDevices(0);
+				break;
+			}
 			rx_info = m.getDevices();
 			n = 0;
 			for (int i = 0; i != rx_info.length; i++) {
@@ -220,6 +224,10 @@ class UMidi20Main extends Thread {
 			}
 			break;
 		case 1:
+			if (m == null) {
+				setTxDevices(0);
+				break;
+			}
 			tx_info = m.getDevices();
 			n = 0;
 			for (int i = 0; i != tx_info.length; i++) {
