@@ -665,8 +665,10 @@ umidi20_android_find_class(const char *name)
 	if (class == NULL) {
 		DPRINTF("Class %s not found\n");
 	} else {
-		class = UMIDI20_MTOD(NewGlobalRef, class);
+		jclass nclass;
+		nclass = UMIDI20_MTOD(NewGlobalRef, class);
 		UMIDI20_MTOD(DeleteLocalRef, class);
+		class = nclass;
 	}
 	return (class);
 }

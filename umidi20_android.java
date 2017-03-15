@@ -32,7 +32,10 @@ import android.os.*;
 import java.lang.*;
 
 class UMidi20Recv extends MidiReceiver {
-	int devindex = 0;
+	int devindex;
+	public UMidi20Recv(int _devindex) {
+	    devindex = _devindex;
+	}
 	public native void onSendNative(byte[] msg, int off, int count, int devindex);
 
 	@Override
@@ -43,7 +46,7 @@ class UMidi20Recv extends MidiReceiver {
 
 class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
 	MidiDevice dev = null;
-	UMidi20Recv recv;
+	UMidi20Recv recv = null;
 	MidiOutputPort outp = null;
 	int opened = 0;
 
@@ -229,7 +232,7 @@ class UMidi20Main extends Thread {
 			rx_dev = new UMidi20RxDev [16];
 			tx_dev = new UMidi20TxDev [16];
 			for (int i = 0; i != 16; i++)
-				rx_dev[i].recv.devindex = i;
+				rx_dev[i].recv = new UMidi20Recv(i);
 			break;
 		default:
 			break;
