@@ -607,6 +607,8 @@ umidi20_android_tx_open(uint8_t n, const char *name)
 		umidi20_action_locked(UMIDI20_CMD_CLOSE_TX | (n << 8) | (x << 12), 0);
 		puj->read_fd[1] = -1;
 	}
+	umidi20_android_unlock();
+
 	return (puj->read_fd[1]);
 }
 
