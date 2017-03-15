@@ -82,7 +82,12 @@ class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
 		    latch = new CountDownLatch(1);
 		    m.openDevice(info, this,
 		        new Handler(Looper.getMainLooper()));
-		    latch.await();
+		    try {
+			latch.await();
+		    }
+		    catch (InterruptedException e)
+		    {
+		    }
 		    if (dev == null)
 			  return;
 		    outp = dev.openOutputPort(portindex);
@@ -147,7 +152,12 @@ class UMidi20TxDev implements MidiManager.OnDeviceOpenedListener {
 		    latch = new CountDownLatch(1);
 		    m.openDevice(info, this,
 		        new Handler(Looper.getMainLooper()));
-		    latch.await();
+		    try {
+			latch.await();
+		    }
+		    catch (InterruptedException e)
+		    {
+		    }
 		    if (dev == null)
 			  return;
 		    inp = dev.openInputPort(portindex);
