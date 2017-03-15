@@ -29,6 +29,7 @@ import android.media.midi.*;
 import android.content.*;
 import android.app.*;
 import android.os.*;
+import java.util.concurrent.*;
 import java.lang.*;
 
 class UMidi20Recv extends MidiReceiver {
@@ -48,6 +49,7 @@ class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
 	MidiDevice dev = null;
 	UMidi20Recv recv = null;
 	MidiOutputPort outp = null;
+    	CountDownLatch latch = null;
 	int opened = 0;
 
 	public UMidi20RxDev(int index) {
@@ -56,12 +58,17 @@ class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
     
 	public void onDeviceOpened(MidiDevice _dev) {
 		dev = _dev;
+		latch.countDown();
 	}
 
 	public void closeDevice() {
 		if (opened != 0) {
 			try {
 				outp.close();
+			}
+			catch (Exception e) {
+			}
+			try {
 				dev.close();
 			}
 			catch (Exception e) {
@@ -72,8 +79,10 @@ class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
 
 	public void openDevice(MidiManager m, MidiDeviceInfo info, int portindex) {
 		if (opened == 0) {
+		    latch = new CountDownLatch(1);
 		    m.openDevice(info, this,
 		        new Handler(Looper.getMainLooper()));
+		    latch.await();
 		    if (dev == null)
 			  return;
 		    outp = dev.openOutputPort(portindex);
@@ -94,16 +103,22 @@ class UMidi20RxDev implements MidiManager.OnDeviceOpenedListener {
 class UMidi20TxDev implements MidiManager.OnDeviceOpenedListener {
 	MidiDevice dev = null;
 	MidiInputPort inp = null;
+	CountDownLatch latch = null;
 	int opened = 0;
 
 	public void onDeviceOpened(MidiDevice _dev) {
 		dev = _dev;
+		latch.countDown();
 	}
 
 	public void closeDevice() {
 		if (opened != 0) {
 		    try {
 			inp.close();
+		    }
+		    catch (Exception e) {
+		    }
+		    try {
 			dev.close();
 		    }
 		    catch (Exception e) {
@@ -129,8 +144,10 @@ class UMidi20TxDev implements MidiManager.OnDeviceOpenedListener {
 
 	public void openDevice(MidiManager m, MidiDeviceInfo info, int portindex) {
 		if (opened == 0) {
+		    latch = new CountDownLatch(1);
 		    m.openDevice(info, this,
 		        new Handler(Looper.getMainLooper()));
+		    latch.await();
 		    if (dev == null)
 			  return;
 		    inp = dev.openInputPort(portindex);
