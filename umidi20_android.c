@@ -66,8 +66,6 @@ struct umidi20_class_main {
 };
 
 struct umidi20_class {
-	JavaVM jvm;
-	JNIEnv *env;
 	void *activity;
 	struct umidi20_class_recv recv;
 	struct umidi20_class_main main;
@@ -80,6 +78,7 @@ static pthread_cond_t umidi20_android_cv;
 static pthread_t umidi20_android_thread;
 static struct umidi20_android umidi20_android[UMIDI20_N_DEVICES];
 static int umidi20_android_init_done;
+static int umidi20_android_register_done;
 static const char *umidi20_android_name;
 static int umidi20_action_current;
 static int umidi20_action_busy;
@@ -95,17 +94,14 @@ enum {
 	UMIDI20_CMD_INITIALIZE,
 };
 
-#define	UMIDI20_MTOD(name, ...)	\
-	umidi20_class.env[0]->name(umidi20_class.env,## __VA_ARGS__)
+#define	UMIDI20_MTOD(env,name, ...)	\
+	env[0]->name(env,## __VA_ARGS__)
 
-#define UMIDI20_CALL(ret,func,...) \
-	UMIDI20_MTOD(ret, umidi20_class.func,## __VA_ARGS__)
+#define	UMIDI20_STRING_LENGTH(env, obj)	\
+	UMIDI20_MTOD(env, GetStringUTFLength, obj)
 
-#define	UMIDI20_STRING_LENGTH(obj) \
-	UMIDI20_MTOD(GetStringUTFLength, obj)
-
-#define	UMIDI20_STRING_COPY(obj, start, len, buf) \
-	UMIDI20_MTOD(GetStringUTFRegion, obj, start, len, (char *)(buf))
+#define	UMIDI20_STRING_COPY(env, obj, start, len, buf)	\
+	UMIDI20_MTOD(env, GetStringUTFRegion, obj, start, len, (char *)(buf))
 
 #ifdef HAVE_DEBUG
 #define	DPRINTF(fmt, ...) \
@@ -115,15 +111,15 @@ enum {
 #endif
 
 static char *
-umidi20_dup_jstring(jstring str)
+umidi20_dup_jstring(JNIEnv *env, jstring str)
 {
 	char *ptr;
-	jsize len = UMIDI20_STRING_LENGTH(str) + 1;
+	jsize len = UMIDI20_STRING_LENGTH(env, str) + 1;
 
 	ptr = malloc(len);
 	if (ptr == NULL)
 		return (NULL);
-	UMIDI20_STRING_COPY(str, 0, len - 1, ptr);
+	UMIDI20_STRING_COPY(env, str, 0, len - 1, ptr);
 	ptr[len - 1] = 0;
 	return (ptr);
 }
@@ -186,7 +182,7 @@ umidi20_android_onSendNative(JNIEnv *env, jobject obj, jobject msg, int offset,
 	uint8_t buffer[count];
 	uint8_t x;
 
-	UMIDI20_MTOD(GetByteArrayRegion, msg, offset, count, buffer);
+	UMIDI20_MTOD(env, GetByteArrayRegion, msg, offset, count, buffer);
 	
 	umidi20_android_lock();
 	puj = &umidi20_android[device];
@@ -241,13 +237,13 @@ umidi20_android_setTxDevices(JNIEnv *env, jobject obj, int num)
 static void
 umidi20_android_storeRxDevice(JNIEnv *env, jobject obj, int num, jstring desc)
 {
-	umidi20_rx_dev_ptr[num] = umidi20_dup_jstring(desc);
+	umidi20_rx_dev_ptr[num] = umidi20_dup_jstring(env, desc);
 }
 
 static void
 umidi20_android_storeTxDevice(JNIEnv *env, jobject obj, int num, jstring desc)
 {
-	umidi20_tx_dev_ptr[num] = umidi20_dup_jstring(desc);
+	umidi20_tx_dev_ptr[num] = umidi20_dup_jstring(env, desc);
 }
 
 static const uint8_t umidi20_cmd_to_len[16] = {
@@ -725,7 +721,9 @@ JNI_OnLoad(JavaVM *jvm, void *reserved)
 
 	UMIDI20_MTOD(NewGlobalRef, obj);
 	UMIDI20_MTOD(DeleteLocalRef, obj);
-	
+
+	umidi20_android_register_done = 1;
+
 	return (JNI_VERSION_1_6);
 }
 
@@ -738,8 +736,8 @@ umidi20_android_init(const char *name, void *activity)
 
 	umidi20_android_name = strdup(name);
 
-	if (umidi20_android_name == NULL || umidi20_class.env == NULL ||
-	    umidi20_class.jvm == NULL || activity == NULL)
+	if (umidi20_android_name == NULL || activity == NULL ||
+	    umidi20_android_register_done == 0)
 		return (-1);
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
