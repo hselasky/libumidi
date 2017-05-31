@@ -192,10 +192,18 @@ class UMidi20Main extends Thread {
 		start();
 	}
 	public String getDescription(MidiDeviceInfo info) {
+		if (info == null)
+			return ("Unknown");
 		Bundle properties = info.getProperties();
-		String manufacturer = properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER).trim();
-		String product = properties.getString(MidiDeviceInfo.PROPERTY_PRODUCT).trim();
-		return (manufacturer + " - " + product).replace("|", "");
+		if (properties == null)
+			return ("Unknown");
+		String manufacturer = properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER);
+		if (manufacturer == null)
+			manufacturer = "";
+		String product = properties.getString(MidiDeviceInfo.PROPERTY_PRODUCT);
+		if (product == null)
+			product = "";
+		return (manufacturer.trim() + " - " + product.trim()).replace("|", "");
 	}
     	public void run() {
 	    while (true) {
