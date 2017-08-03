@@ -92,7 +92,7 @@ package:
 
 	tar -cvf temp.tar --exclude="*~" --exclude="*#" \
 		--exclude=".svn" --exclude="*.orig" --exclude="*.rej" \
-		Makefile umidi20.3 umidi20*.[ch]
+		Makefile umidi20.3 umidi20*.[ch] umidi20*.java
 
 	rm -rf libumidi-${VERSION}
 
