@@ -1128,7 +1128,7 @@ umidi20_event_copy_out(struct umidi20_event *event, uint8_t *dst,
 		if (part_len > len) {
 			part_len = len;
 		}
-		bcopy(event->cmd + 1 + offset, dst, part_len);
+		memcpy(dst, event->cmd + 1 + offset, part_len);
 
 		dst += part_len;
 		len -= part_len;
@@ -1567,7 +1567,7 @@ umidi20_convert_to_event(struct umidi20_converter *conv,
 			event = umidi20_event_alloc(NULL, flag);
 		}
 
-		bcopy(conv->temp_cmd, event->cmd, UMIDI20_COMMAND_LEN);
+		memcpy(event->cmd, conv->temp_cmd, UMIDI20_COMMAND_LEN);
 
 		if ((conv->temp_cmd[0] == 0x8) ||
 		    (conv->temp_cmd[0] == 0x0)) {
