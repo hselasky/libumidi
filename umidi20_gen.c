@@ -227,7 +227,10 @@ mid_add_raw(struct mid_data *d, const uint8_t *buf,
 	event = umidi20_event_from_data(buf, len, 0);
 	if (event) {
 		event->position = d->position[d->channel] + offset;
-		event->cmd[1] |= (d->channel & 0xF);
+
+		/* check if we should insert the channel */
+		if (umidi20_event_get_what(event) & UMIDI20_WHAT_CHANNEL)
+			event->cmd[1] |= (d->channel & 0xF);
 
 		if (d->cc_enabled) {
 			/*
