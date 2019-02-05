@@ -903,10 +903,15 @@ umidi20_event_is_key_start(struct umidi20_event *event)
 {
 	uint32_t what = umidi20_event_get_what(event);
 
-	if (what & UMIDI20_WHAT_KEY)
-		return (umidi20_event_get_velocity(event) != 0);
-	else
-		return (0);
+	if (what & UMIDI20_WHAT_KEY) {
+		if ((event->cmd[1] & 0xF0) == 0x80)
+			return (0);
+		if (what & UMIDI20_WHAT_VELOCITY) {
+			if (umidi20_event_get_velocity(event) != 0)
+				return (1);
+		}
+	}
+	return (0);
 }
 
 uint8_t
@@ -917,8 +922,10 @@ umidi20_event_is_key_end(struct umidi20_event *event)
 	if (what & UMIDI20_WHAT_KEY) {
 		if ((event->cmd[1] & 0xF0) == 0x80)
 			return (1);
-		if (umidi20_event_get_velocity(event) == 0)
-			return (1);
+		if (what & UMIDI20_WHAT_VELOCITY) {
+			if (umidi20_event_get_velocity(event) == 0)
+				return (1);
+		}
 	}
 	return (0);
 }
