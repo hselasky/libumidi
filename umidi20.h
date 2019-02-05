@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2019 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,6 +79,7 @@ enum {
 #define	UMIDI20_WHAT_PITCH_BEND       0x0100
 #define	UMIDI20_WHAT_BEAT_EVENT	      0x0200
 #define	UMIDI20_WHAT_SONG_EVENT	      0x0400
+#define	UMIDI20_WHAT_EXTENDED_KEY     0x0800
 
 struct timespec;
 struct umidi20_event;
@@ -418,6 +419,7 @@ extern struct umidi20_event *umidi20_event_alloc(struct umidi20_event ***ppp_nex
 extern void umidi20_event_free(struct umidi20_event *event);
 extern struct umidi20_event *umidi20_event_copy(struct umidi20_event *event, uint8_t flag);
 extern struct umidi20_event *umidi20_event_from_data(const uint8_t *data_ptr, uint32_t data_len, uint8_t flag);
+extern uint8_t *umidi20_event_pointer(struct umidi20_event *event, uint32_t offset);
 extern uint32_t umidi20_event_get_what(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_meta(struct umidi20_event *event);
 extern uint8_t umidi20_event_is_pitch_bend(struct umidi20_event *event);
@@ -430,6 +432,8 @@ extern uint8_t umidi20_event_get_channel(struct umidi20_event *event);
 extern void umidi20_event_set_channel(struct umidi20_event *event, uint8_t c);
 extern uint8_t umidi20_event_get_key(struct umidi20_event *event);
 extern void umidi20_event_set_key(struct umidi20_event *event, uint8_t k);
+extern uint32_t umidi20_event_get_extended_key(struct umidi20_event *event);
+extern void umidi20_event_set_extended_key(struct umidi20_event *event, uint32_t k);
 extern uint8_t umidi20_event_get_velocity(struct umidi20_event *event);
 extern void umidi20_event_set_velocity(struct umidi20_event *event, uint8_t v);
 extern uint8_t umidi20_event_get_pressure(struct umidi20_event *event);
@@ -718,6 +722,7 @@ void	mid_position_ceil(struct mid_data *d, uint16_t channel_mask);
 void	mid_position_floor(struct mid_data *d, uint16_t channel_mask);
 void	mid_delay_all(struct mid_data *d, int32_t off);
 void	mid_key_press(struct mid_data *d, uint8_t key, uint8_t vel, uint32_t duration);
+void	mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, uint8_t vel, uint32_t duration);
 void	mid_key_press_n(struct mid_data *d, const uint8_t *pkey, uint8_t nkey, uint8_t vel, uint32_t duration);
 void	mid_set_channel(struct mid_data *d, uint8_t channel);
 uint8_t	mid_get_channel(struct mid_data *d);

@@ -228,9 +228,8 @@ mid_add_raw(struct mid_data *d, const uint8_t *buf,
 	if (event) {
 		event->position = d->position[d->channel] + offset;
 
-		/* check if we should insert the channel */
-		if (umidi20_event_get_what(event) & UMIDI20_WHAT_CHANNEL)
-			event->cmd[1] |= (d->channel & 0xF);
+		/* set channel, if any */
+		umidi20_event_set_channel(event, d->channel);
 
 		if (d->cc_enabled) {
 			/*
@@ -341,6 +340,39 @@ mid_key_press(struct mid_data *d, uint8_t key, uint8_t vel, uint32_t duration)
 
 	if (duration != 0 && vel != 0)
 		mid_add_raw(d, buf1, 3, duration);
+}
+
+void
+mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, uint8_t vel, uint32_t duration)
+{
+	uint8_t buf0[11];
+	uint8_t buf1[3];
+
+	buf0[0] = 0xF0;
+	buf0[1] = 0x0A;
+	buf0[2] = 0x55;   /* XXX */
+	buf0[3] = d->channel;
+	buf0[4] = key & 0x7F;
+	buf0[5] = vel & 0x7F;
+
+	buf0[9] = freq & 0x7F;
+	freq >>= 7;
+	buf0[8] = freq & 0x7F;
+	freq >>= 7;
+	buf0[7] = freq & 0x7F;
+	freq >>= 7;
+	buf0[6] = freq & 0x7F;
+
+	buf0[10] = 0xF7;
+
+	mid_add_raw(d, buf0, sizeof(buf0), 0);
+
+	if (duration != 0 && vel != 0) {
+		buf1[0] = 0x90;
+		buf1[1] = key & 0x7F;
+		buf1[2] = 0;	/* key off */
+		mid_add_raw(d, buf1, sizeof(buf1), duration);
+	}
 }
 
 void

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006-2011 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2019 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -809,12 +809,26 @@ fail:
 	return NULL;
 }
 
+uint8_t *
+umidi20_event_pointer(struct umidi20_event *event, uint32_t offset)
+{
+	while (1) {
+		uint32_t len = umidi20_event_get_length_first(event);
+		if (offset >= len) {
+			offset -= len;
+			event = event->p_next;
+		} else {
+			return (&event->cmd[1 + offset]);
+		}
+	}
+}
+
 uint32_t
 umidi20_event_get_what(struct umidi20_event *event)
 {
-	if (event == NULL) {
+	if (event == NULL)
 		return 0;
-	}
+
 	switch (event->cmd[1] >> 4) {
 	case 0x8:
 	case 0x9:
@@ -849,6 +863,16 @@ umidi20_event_get_what(struct umidi20_event *event)
 		case 0xFB:
 		case 0xFC:
 			return (UMIDI20_WHAT_SONG_EVENT);
+		case 0xF0:	/* SYSEX */
+			if (umidi20_event_get_length(event) >= 11 &&
+			    umidi20_event_pointer(event, 1)[0] == 0x0A &&
+			    umidi20_event_pointer(event, 2)[0] == 0x55) {
+				return (UMIDI20_WHAT_CHANNEL |
+					UMIDI20_WHAT_KEY |
+					UMIDI20_WHAT_VELOCITY |
+					UMIDI20_WHAT_EXTENDED_KEY);
+			}
+			break;
 		default:
 			break;
 		}
@@ -877,18 +901,26 @@ umidi20_event_is_pitch_bend(struct umidi20_event *event)
 uint8_t
 umidi20_event_is_key_start(struct umidi20_event *event)
 {
-	if (event == NULL)
-		return 0;
-	return (((event->cmd[1] & 0xF0) == 0x90) && (event->cmd[3] != 0));
+	uint32_t what = umidi20_event_get_what(event);
+
+	if (what & UMIDI20_WHAT_KEY)
+		return (umidi20_event_get_velocity(event) != 0);
+	else
+		return (0);
 }
 
 uint8_t
 umidi20_event_is_key_end(struct umidi20_event *event)
 {
-	if (event == NULL)
-		return 0;
-	return (((event->cmd[1] & 0xF0) == 0x80) ||
-	    (((event->cmd[1] & 0xF0) == 0x90) && (event->cmd[3] == 0)));
+  	uint32_t what = umidi20_event_get_what(event);
+
+	if (what & UMIDI20_WHAT_KEY) {
+		if ((event->cmd[1] & 0xF0) == 0x80)
+			return (1);
+		if (umidi20_event_get_velocity(event) == 0)
+			return (1);
+	}
+	return (0);
 }
 
 uint8_t
@@ -922,8 +954,12 @@ umidi20_event_get_channel(struct umidi20_event *event)
 {
 	uint32_t what = umidi20_event_get_what(event);
 
-	return ((what & UMIDI20_WHAT_CHANNEL) ?
-	    (event->cmd[1] & 0x0F) : 0);
+	if (what & UMIDI20_WHAT_EXTENDED_KEY)
+		return (umidi20_event_pointer(event, 3)[0] & 0x0F);
+	else if (what & UMIDI20_WHAT_CHANNEL)
+		return (event->cmd[1] & 0x0F);
+	else
+		return (0);
 }
 
 void
@@ -931,7 +967,10 @@ umidi20_event_set_channel(struct umidi20_event *event, uint8_t c)
 {
 	uint32_t what = umidi20_event_get_what(event);
 
-	if (what & UMIDI20_WHAT_CHANNEL) {
+	if (what & UMIDI20_WHAT_EXTENDED_KEY) {
+		umidi20_event_pointer(event, 3)[0] &= 0xF0;
+		umidi20_event_pointer(event, 3)[0] |= (c & 0x0F);
+	} else if (what & UMIDI20_WHAT_CHANNEL) {
 		event->cmd[1] &= 0xF0;
 		event->cmd[1] |= (c & 0x0F);
 	}
@@ -942,8 +981,12 @@ umidi20_event_get_key(struct umidi20_event *event)
 {
 	uint32_t what = umidi20_event_get_what(event);
 
-	return ((what & UMIDI20_WHAT_KEY) ?
-	    event->cmd[2] : 0);
+	if (what & UMIDI20_WHAT_EXTENDED_KEY)
+		return (umidi20_event_pointer(event, 4)[0]);
+	else if (what & UMIDI20_WHAT_KEY)
+		return (event->cmd[2]);
+	else
+		return (0);
 }
 
 void
@@ -951,8 +994,46 @@ umidi20_event_set_key(struct umidi20_event *event, uint8_t k)
 {
 	uint32_t what = umidi20_event_get_what(event);
 
-	if (what & UMIDI20_WHAT_KEY) {
+	if (what & UMIDI20_WHAT_EXTENDED_KEY)
+		umidi20_event_pointer(event, 4)[0] = k & 0x7F;
+	else if (what & UMIDI20_WHAT_KEY)
 		event->cmd[2] = k & 0x7F;
+}
+
+uint32_t
+umidi20_event_get_extended_key(struct umidi20_event *event)
+{
+	uint32_t what = umidi20_event_get_what(event);
+
+	if (what & UMIDI20_WHAT_EXTENDED_KEY) {
+		uint32_t retval = 0;
+		retval |= umidi20_event_pointer(event, 6)[0] & 0x7F;
+		retval <<= 7;
+		retval |= umidi20_event_pointer(event, 7)[0] & 0x7F;
+		retval <<= 7;
+		retval |= umidi20_event_pointer(event, 8)[0] & 0x7F;
+		retval <<= 7;
+		retval |= umidi20_event_pointer(event, 9)[0] & 0x7F;
+
+		return (retval);
+	} else {
+		return (-1U);
+	}
+}
+
+void
+umidi20_event_set_extended_key(struct umidi20_event *event, uint32_t freq)
+{
+	uint32_t what = umidi20_event_get_what(event);
+
+	if (what & UMIDI20_WHAT_EXTENDED_KEY) {
+		umidi20_event_pointer(event, 9)[0] = freq & 0x7F;
+		freq >>= 7;
+		umidi20_event_pointer(event, 8)[0] = freq & 0x7F;
+		freq >>= 7;
+		umidi20_event_pointer(event, 7)[0] = freq & 0x7F;
+		freq >>= 7;
+		umidi20_event_pointer(event, 6)[0] = freq & 0x7F;
 	}
 }
 
@@ -961,8 +1042,12 @@ umidi20_event_get_velocity(struct umidi20_event *event)
 {
 	uint32_t what = umidi20_event_get_what(event);
 
-	return ((what & UMIDI20_WHAT_VELOCITY) ?
-	    event->cmd[3] : 0);
+	if (what & UMIDI20_WHAT_EXTENDED_KEY)
+		return (umidi20_event_pointer(event, 5)[0]);
+	else if (what & UMIDI20_WHAT_VELOCITY)
+		return (event->cmd[3]);
+	else
+		return (0);
 }
 
 void
@@ -970,9 +1055,10 @@ umidi20_event_set_velocity(struct umidi20_event *event, uint8_t k)
 {
 	uint32_t what = umidi20_event_get_what(event);
 
-	if (what & UMIDI20_WHAT_VELOCITY) {
+	if (what & UMIDI20_WHAT_EXTENDED_KEY)
+		umidi20_event_pointer(event, 5)[0] = k & 0x7F;
+	else if (what & UMIDI20_WHAT_VELOCITY)
 		event->cmd[3] = k & 0x7F;
-	}
 }
 
 uint8_t
