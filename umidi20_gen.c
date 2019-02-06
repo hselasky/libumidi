@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2019 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -322,68 +322,78 @@ mid_delay_all(struct mid_data *d, int32_t off)
 }
 
 void
-mid_key_press(struct mid_data *d, uint8_t key, uint8_t vel, uint32_t duration)
+mid_key_press(struct mid_data *d, uint8_t key, int8_t vel, uint32_t duration)
 {
-	uint8_t buf0[4];
-	uint8_t buf1[4];
+	uint8_t buf[3];
 
-	buf0[0] = 0x90;
-	buf1[0] = 0x90;
+	if (vel <= 0) {
+		buf[0] = 0x80;
+		buf[1] = key & 0x7F;
+		buf[2] = (-vel) & 0x7F;
+	} else {
+		buf[0] = 0x90;
+		buf[1] = key & 0x7F;
+		buf[2] = vel & 0x7F;
+	}
+	mid_add_raw(d, buf, sizeof(buf), 0);
 
-	buf0[1] = key & 0x7F;
-	buf1[1] = key & 0x7F;
-
-	buf0[2] = vel & 0x7F;
-	buf1[2] = 0;			/* key off */
-
-	mid_add_raw(d, buf0, 3, 0);
-
-	if (duration != 0 && vel != 0)
-		mid_add_raw(d, buf1, 3, duration);
+	if (duration != 0 && vel > 0) {
+		buf[0] = 0x80;
+		buf[1] = key & 0x7F;
+		buf[2] = vel & 0x7F;
+		mid_add_raw(d, buf, sizeof(buf), duration);
+	}
 }
 
 void
-mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, uint8_t vel, uint32_t duration)
+mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, int8_t vel, uint32_t duration)
 {
 	uint8_t buf0[11];
 	uint8_t buf1[3];
 
-	buf0[0] = 0xF0;
-	buf0[1] = 0x0A;
-	buf0[2] = 0x55;   /* XXX */
-	buf0[3] = d->channel;
-	buf0[4] = key & 0x7F;
-	buf0[5] = vel & 0x7F;
-
-	buf0[9] = freq & 0x7F;
-	freq >>= 7;
-	buf0[8] = freq & 0x7F;
-	freq >>= 7;
-	buf0[7] = freq & 0x7F;
-	freq >>= 7;
-	buf0[6] = freq & 0x7F;
-
-	buf0[10] = 0xF7;
-
-	mid_add_raw(d, buf0, sizeof(buf0), 0);
-
-	if (duration != 0 && vel != 0) {
-		buf1[0] = 0x90;
+	if (vel <= 0) {
+		buf1[0] = 0x80;
 		buf1[1] = key & 0x7F;
-		buf1[2] = 0;	/* key off */
+		buf1[2] = (-vel) & 0x7F;
+
+		mid_add_raw(d, buf1, sizeof(buf1), 0);
+	} else {
+		buf0[0] = 0xF0;
+		buf0[1] = 0x0A;
+		buf0[2] = 0x55;   /* XXX */
+		buf0[3] = d->channel;
+		buf0[4] = key & 0x7F;
+		buf0[5] = vel & 0x7F;
+
+		buf0[9] = freq & 0x7F;
+		freq >>= 7;
+		buf0[8] = freq & 0x7F;
+		freq >>= 7;
+		buf0[7] = freq & 0x7F;
+		freq >>= 7;
+		buf0[6] = freq & 0x7F;
+
+		buf0[10] = 0xF7;
+
+		mid_add_raw(d, buf0, sizeof(buf0), 0);
+	}
+
+	if (duration != 0 && vel > 0) {
+		buf1[0] = 0x80;
+		buf1[1] = key & 0x7F;
+		buf1[2] = vel & 0x7F;
 		mid_add_raw(d, buf1, sizeof(buf1), duration);
 	}
 }
 
 void
 mid_key_press_n(struct mid_data *d, const uint8_t *pkey, uint8_t nkey,
-    uint8_t vel, uint32_t duration)
+    int8_t vel, uint32_t duration)
 {
 	uint8_t n;
 
-	for (n = 0; n != nkey; n++) {
+	for (n = 0; n != nkey; n++)
 		mid_key_press(d, pkey[n], vel, duration);
-	}
 }
 
 void
