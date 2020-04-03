@@ -866,7 +866,8 @@ umidi20_event_get_what(struct umidi20_event *event)
 		case 0xF0:	/* SYSEX */
 			if (umidi20_event_get_length(event) >= 11 &&
 			    umidi20_event_pointer(event, 1)[0] == 0x0A &&
-			    umidi20_event_pointer(event, 2)[0] == 0x55) {
+			    umidi20_event_pointer(event, 2)[0] == 0x55 &&
+			    (umidi20_event_pointer(event, 3)[0] & 0xF0) == 0x00) {
 				return (UMIDI20_WHAT_CHANNEL |
 					UMIDI20_WHAT_KEY |
 					UMIDI20_WHAT_VELOCITY |

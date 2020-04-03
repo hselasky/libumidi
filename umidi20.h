@@ -723,6 +723,8 @@ void	mid_position_floor(struct mid_data *d, uint16_t channel_mask);
 void	mid_delay_all(struct mid_data *d, int32_t off);
 void	mid_key_press(struct mid_data *d, uint8_t key, int8_t vel, uint32_t duration);
 void	mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, int8_t vel, uint32_t duration);
+void	mid_extended_key_pitch(struct mid_data *d, uint8_t key, uint32_t freq);
+void	mid_extended_key_control(struct mid_data *d, uint8_t key, uint8_t control, uint32_t value);
 void	mid_key_press_n(struct mid_data *d, const uint8_t *pkey, uint8_t nkey, int8_t vel, uint32_t duration);
 void	mid_set_channel(struct mid_data *d, uint8_t channel);
 uint8_t	mid_get_channel(struct mid_data *d);

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006-2019 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2020 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -361,7 +361,7 @@ mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, int8_t ve
 		buf0[0] = 0xF0;
 		buf0[1] = 0x0A;
 		buf0[2] = 0x55;   /* XXX */
-		buf0[3] = d->channel;
+		buf0[3] = d->channel & 0x0F;
 		buf0[4] = key & 0x7F;
 		buf0[5] = vel & 0x7F;
 
@@ -384,6 +384,56 @@ mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, int8_t ve
 		buf1[2] = vel & 0x7F;
 		mid_add_raw(d, buf1, sizeof(buf1), duration);
 	}
+}
+
+void
+mid_extended_key_pitch(struct mid_data *d, uint8_t key, uint32_t freq)
+{
+	uint8_t buf0[11];
+
+	buf0[0] = 0xF0;
+	buf0[1] = 0x0A;
+	buf0[2] = 0x55;   /* XXX */
+	buf0[3] = (d->channel & 0x0F) | 0x30;
+	buf0[4] = key & 0x7F;
+	buf0[5] = 0;
+
+	buf0[9] = freq & 0x7F;
+	freq >>= 7;
+	buf0[8] = freq & 0x7F;
+	freq >>= 7;
+	buf0[7] = freq & 0x7F;
+	freq >>= 7;
+	buf0[6] = freq & 0x7F;
+
+	buf0[10] = 0xF7;
+
+	mid_add_raw(d, buf0, sizeof(buf0), 0);
+}
+
+void
+mid_extended_key_control(struct mid_data *d, uint8_t key, uint8_t control, uint32_t value)
+{
+	uint8_t buf0[11];
+
+	buf0[0] = 0xF0;
+	buf0[1] = 0x0A;
+	buf0[2] = 0x55;   /* XXX */
+	buf0[3] = (d->channel & 0x0F) | 0x20;
+	buf0[4] = key & 0x7F;
+	buf0[5] = control & 0x7F;
+
+	buf0[9] = value & 0x7F;
+	value >>= 7;
+	buf0[8] = value & 0x7F;
+	value >>= 7;
+	buf0[7] = value & 0x7F;
+	value >>= 7;
+	buf0[6] = value & 0x7F;
+
+	buf0[10] = 0xF7;
+
+	mid_add_raw(d, buf0, sizeof(buf0), 0);
 }
 
 void
