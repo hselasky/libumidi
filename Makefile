@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011-2013 Hans Petter Selasky. All rights reserved.
+# Copyright (c) 2011-2021 Hans Petter Selasky. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,8 +35,7 @@ MANDIR=		${PREFIX}/man/man
 LIBDIR=		${PREFIX}/lib
 INCLUDEDIR=	${PREFIX}/include
 MKLINT=		no
-NO_WERROR=
-NOGCCERROR=
+MK_WERROR=	no
 PTHREAD_LIBS?=	-lpthread
 
 LIB=		umidi20
@@ -85,23 +84,5 @@ MAN=		umidi20.3
 .else
 MAN=
 .endif
-
-package:
-
-	make clean cleandepend HAVE_MAN=YES
-
-	tar -cvf temp.tar --exclude="*~" --exclude="*#" \
-		--exclude=".svn" --exclude="*.orig" --exclude="*.rej" \
-		Makefile umidi20.3 umidi20*.[ch] umidi20*.java
-
-	rm -rf libumidi-${VERSION}
-
-	mkdir libumidi-${VERSION}
-
-	tar -xvf temp.tar -C libumidi-${VERSION}
-
-	rm -rf temp.tar
-
-	tar --uid=0 --gid=0 -jcvf libumidi-${VERSION}.tar.bz2 libumidi-${VERSION}
 
 .include <bsd.lib.mk>
