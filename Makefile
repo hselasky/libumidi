@@ -49,6 +49,14 @@ SRCS+=		umidi20_file.c
 SRCS+=		umidi20_gen.c
 INCS=		umidi20.h
 
+.if defined(HAVE_ALSA)
+SRCS+=		umidi20_alsa.c
+LDADD+=		-L${PREFIX}/lib -lasound
+CFLAGS+=	-I${PREFIX}/include
+.else
+SRCS+=		umidi20_alsa_dummy.c
+.endif
+
 .if defined(HAVE_JACK)
 SRCS+=		umidi20_jack.c
 LDADD+=		-L${PREFIX}/lib -ljack

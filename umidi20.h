@@ -291,6 +291,7 @@ struct umidi20_config_dev {
 #define	UMIDI20_ENABLED_CFG_JACK 2
 #define	UMIDI20_ENABLED_CFG_COREMIDI 3
 #define	UMIDI20_ENABLED_CFG_ANDROID 4
+#define	UMIDI20_ENABLED_CFG_ALSA 5
 };
 
 struct umidi20_config {
@@ -499,6 +500,20 @@ extern uint8_t umidi20_save_file(struct umidi20_song *song, uint8_t **pptr, uint
  * prototypes from "umidi20_assert.c"
  *--------------------------------------------------------------------------*/
 #define	pthread_mutex_assert(mtx, flags) do { } while (0)
+
+/*--------------------------------------------------------------------------*
+ * prototypes from "umidi20_jack.c"
+ *--------------------------------------------------------------------------*/
+const char **umidi20_alsa_alloc_inputs(void);
+const char **umidi20_alsa_alloc_outputs(void);
+void umidi20_alsa_free_inputs(const char **);
+void umidi20_alsa_free_outputs(const char **);
+
+int	umidi20_alsa_rx_open(uint8_t n, const char *name);
+int	umidi20_alsa_tx_open(uint8_t n, const char *name);
+int	umidi20_alsa_rx_close(uint8_t n);
+int	umidi20_alsa_tx_close(uint8_t n);
+int	umidi20_alsa_init(const char *name);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_jack.c"

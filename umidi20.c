@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006-2019 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2022 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -595,6 +595,9 @@ umidi20_watchdog_files(void *arg)
 					case UMIDI20_ENABLED_CFG_ANDROID:
 						umidi20_android_tx_close(x);
 						break;
+					case UMIDI20_ENABLED_CFG_ALSA:
+						umidi20_alsa_tx_close(x);
+						break;
 					default:
 						break;
 					}
@@ -611,6 +614,9 @@ umidi20_watchdog_files(void *arg)
 					break;
 				case UMIDI20_ENABLED_CFG_ANDROID:
 					file_no = umidi20_android_tx_open(x, dev->fname);
+					break;
+				case UMIDI20_ENABLED_CFG_ALSA:
+					file_no = umidi20_alsa_tx_open(x, dev->fname);
 					break;
 				default:
 					file_no = -1;
@@ -645,6 +651,9 @@ umidi20_watchdog_files(void *arg)
 					case UMIDI20_ENABLED_CFG_ANDROID:
 						umidi20_android_rx_close(x);
 						break;
+					case UMIDI20_ENABLED_CFG_ALSA:
+						umidi20_alsa_rx_close(x);
+						break;
 					default:
 						break;
 					}
@@ -661,6 +670,9 @@ umidi20_watchdog_files(void *arg)
 					break;
 				case UMIDI20_ENABLED_CFG_ANDROID:
 					file_no = umidi20_android_rx_open(x, dev->fname);
+					break;
+				case UMIDI20_ENABLED_CFG_ALSA:
+					file_no = umidi20_alsa_rx_open(x, dev->fname);
 					break;
 				default:
 					file_no = -1;
