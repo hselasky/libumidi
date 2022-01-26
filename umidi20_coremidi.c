@@ -33,7 +33,9 @@
 #include <pthread.h>
 #include <err.h>
 
-#import <CoreMIDI/CoreMIDI.h>
+#include <CoreMIDI/CoreMIDI.h>
+
+#include <mach/mach_time.h>
 
 #include "umidi20.h"
 
@@ -303,9 +305,11 @@ umidi20_write_process(void *arg)
 						if (len == 0)
 							continue;
 
+						timeStamp = mach_absolute_time();
 						pkt = MIDIPacketListInit(&pktList);
 						pkt = MIDIPacketListAdd(&pktList, sizeof(pktList),
-						    pkt, 0, len, &puj->parse.temp_cmd[1]);
+						    pkt, (MIDITimeStamp)mach_absolute_time(),
+						    len, &puj->parse.temp_cmd[1]);
 						MIDISend(puj->output_port,
 						    puj->output_endpoint, &pktList);
 					}
