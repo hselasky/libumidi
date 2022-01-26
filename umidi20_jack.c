@@ -394,7 +394,7 @@ umidi20_jack_alloc_inputs(void)
 	int n;
 
 	if (umidi20_jack_init_done == 0)
-		return (0);
+		return (NULL);
 
 	ptr = jack_get_ports(umidi20_jack_client, NULL,
 	    JACK_DEFAULT_MIDI_TYPE, JackPortIsInput);
@@ -415,7 +415,7 @@ umidi20_jack_alloc_outputs(void)
 	int n;
 
 	if (umidi20_jack_init_done == 0)
-		return (0);
+		return (NULL);
 
 	ptr = jack_get_ports(umidi20_jack_client, NULL,
 	    JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput);
