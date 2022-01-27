@@ -571,6 +571,41 @@ umidi20_alsa_worker(void *arg)
 	return (NULL);
 }
 
+static void
+umidi20_alsa_uniq_inputs(char **ptr)
+{
+	unsigned long x;
+	unsigned long y;
+	unsigned long z;
+	unsigned long n;
+	char *pstr;
+
+	/* remove any hashes from device names */
+	for (n = 0; ptr[n]; n++) {
+		pstr = strchr(ptr[n], '#');
+		if (pstr != NULL)
+			*pstr = 0;
+	}
+
+	/* make all device names uniqe */
+	for (x = 0; x != n; x++) {
+		for (z = 0, y = x + 1; y != n; y++) {
+			if (strcmp(ptr[x], ptr[y]) == 0) {
+				size_t s = strlen(ptr[y]) + 16;
+				pstr = ptr[y];
+				ptr[y] = malloc(s);
+				if (ptr[y] == NULL) {
+					ptr[y] = pstr;
+					return;
+				}
+				z++;
+				snprintf(ptr[y], s, "%s#%d", pstr, (int)z);
+				free(pstr);
+			}
+		}
+	}
+}
+
 static const char **
 umidi20_alsa_alloc_ports(unsigned mask)
 {
@@ -621,7 +656,45 @@ umidi20_alsa_alloc_ports(unsigned mask)
 	}
 
 	ptr[n] = NULL;
+
+	umidi20_alsa_uniq_inputs(ptr);
+
 	return ((const char **)ptr);
+}
+
+static bool
+umidi20_alsa_compare_dev_string(char *ptr, const char *name, int *pidx)
+{
+	char *tmp;
+	char *cpy;
+	int which;
+
+	tmp = strchr(ptr, '#');
+	if (tmp != NULL)
+		*tmp = 0;
+
+	cpy = strdup(name);
+	if (cpy == NULL)
+		return (false);
+
+	tmp = strchr(cpy, '#');
+	if (tmp != NULL) {
+		which = atoi(tmp + 1);
+		*tmp = 0;
+	} else {
+		which = 0;
+	}
+
+	if (strcmp(ptr, cpy) == 0) {
+		if (*pidx == which) {
+			(*pidx)++;
+			free(cpy);
+			return (true);
+		}
+		(*pidx)++;
+	}
+	free(cpy);
+	return (false);
 }
 
 static int
@@ -629,6 +702,7 @@ umidi20_alsa_find_port(unsigned mask, const char *pname, snd_seq_addr_t *paddr)
 {
         snd_seq_client_info_t *cinfo;
         snd_seq_port_info_t *pinfo;
+	int index = 0;
 
         snd_seq_client_info_alloca(&cinfo);
         snd_seq_port_info_alloca(&pinfo);
@@ -648,7 +722,7 @@ umidi20_alsa_find_port(unsigned mask, const char *pname, snd_seq_addr_t *paddr)
 			asprintf(&ptr, "%s:%s",
 				 snd_seq_client_info_get_name(cinfo),
 				 snd_seq_port_info_get_name(pinfo));
-			found = (strcmp(ptr, pname) == 0);
+			found = umidi20_alsa_compare_dev_string(ptr, pname, &index);
 			free(ptr);
 
 			if (found) {
