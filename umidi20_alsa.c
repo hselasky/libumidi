@@ -41,7 +41,7 @@ struct umidi20_alsa_parse {
 	uint8_t	temp_0[4];
 	uint8_t	temp_1[4];
 	uint8_t	state;
-#define	UMIDI20_ALSA_ST_UNKNOWN	 0		/* scan for command */
+#define	UMIDI20_ALSA_ST_UNKNOWN	 0	/* scan for command */
 #define	UMIDI20_ALSA_ST_1PARAM	 1
 #define	UMIDI20_ALSA_ST_2PARAM_1	 2
 #define	UMIDI20_ALSA_ST_2PARAM_2	 3
@@ -498,12 +498,13 @@ umidi20_alsa_worker(void *arg)
 		struct pollfd fds[nfds];
 		int x;
 
-                snd_seq_poll_descriptors(umidi20_alsa_seq,
+		snd_seq_poll_descriptors(umidi20_alsa_seq,
 		    fds, nfds - UMIDI20_N_DEVICES, POLLIN);
 
 		umidi20_alsa_lock();
 		for (x = 0; x != UMIDI20_N_DEVICES; x++) {
 			struct pollfd *p = fds + x + nfds - UMIDI20_N_DEVICES;
+
 			p->revents = 0;
 			p->fd = umidi20_alsa[x].read_fd[0];
 			if (p->fd > -1)
@@ -520,7 +521,7 @@ umidi20_alsa_worker(void *arg)
 		umidi20_alsa_lock();
 		do {
 			err = snd_seq_event_input(umidi20_alsa_seq, &event);
-                        if (err < 0)
+			if (err < 0)
 				break;
 			if (event == NULL)
 				continue;
@@ -535,7 +536,7 @@ umidi20_alsa_worker(void *arg)
 					    umidi20_alsa_addr_compare(&self, &event->data.connect.dest)) {
 						umidi20_alsa_close_fd(&umidi20_alsa[x].write_fd[1]);
 					} else if (umidi20_alsa_addr_compare(&self, &event->data.connect.sender) &&
-						   umidi20_alsa_addr_compare(&umidi20_alsa[x].read_addr, &event->data.connect.dest)) {
+					    umidi20_alsa_addr_compare(&umidi20_alsa[x].read_addr, &event->data.connect.dest)) {
 						umidi20_alsa_close_fd(&umidi20_alsa[x].read_fd[0]);
 					}
 				}
@@ -555,6 +556,7 @@ umidi20_alsa_worker(void *arg)
 		for (x = 0; x != UMIDI20_N_DEVICES; x++) {
 			struct snd_seq_event temp;
 			int fd = umidi20_alsa[x].read_fd[0];
+
 			if (fd < 0)
 				continue;
 			while (umidi20_alsa_receive_seq_event(&temp, &umidi20_alsa[x].parse, fd)) {
@@ -592,6 +594,7 @@ umidi20_alsa_uniq_inputs(char **ptr)
 		for (z = 0, y = x + 1; y != n; y++) {
 			if (strcmp(ptr[x], ptr[y]) == 0) {
 				size_t s = strlen(ptr[y]) + 16;
+
 				pstr = ptr[y];
 				ptr[y] = malloc(s);
 				if (ptr[y] == NULL) {
@@ -609,23 +612,23 @@ umidi20_alsa_uniq_inputs(char **ptr)
 static const char **
 umidi20_alsa_alloc_ports(unsigned mask)
 {
-        snd_seq_client_info_t *cinfo;
-        snd_seq_port_info_t *pinfo;
+	snd_seq_client_info_t *cinfo;
+	snd_seq_port_info_t *pinfo;
 	char **ptr;
 	size_t num = 1;
 	size_t n = 0;
 
-        snd_seq_client_info_alloca(&cinfo);
-        snd_seq_port_info_alloca(&pinfo);
+	snd_seq_client_info_alloca(&cinfo);
+	snd_seq_port_info_alloca(&pinfo);
 
-        snd_seq_client_info_set_client(cinfo, -1);
-        while (snd_seq_query_next_client(umidi20_alsa_seq, cinfo) >= 0) {
-                int client = snd_seq_client_info_get_client(cinfo);
+	snd_seq_client_info_set_client(cinfo, -1);
+	while (snd_seq_query_next_client(umidi20_alsa_seq, cinfo) >= 0) {
+		int client = snd_seq_client_info_get_client(cinfo);
 
-                snd_seq_port_info_set_client(pinfo, client);
-                snd_seq_port_info_set_port(pinfo, -1);
-                while (snd_seq_query_next_port(umidi20_alsa_seq, pinfo) >= 0) {
-                        if ((snd_seq_port_info_get_capability(pinfo) & mask) != mask)
+		snd_seq_port_info_set_client(pinfo, client);
+		snd_seq_port_info_set_port(pinfo, -1);
+		while (snd_seq_query_next_port(umidi20_alsa_seq, pinfo) >= 0) {
+			if ((snd_seq_port_info_get_capability(pinfo) & mask) != mask)
 				continue;
 			num++;
 		}
@@ -635,21 +638,22 @@ umidi20_alsa_alloc_ports(unsigned mask)
 
 	ptr = malloc(sizeof(ptr[0]) * num);
 
-        snd_seq_client_info_set_client(cinfo, -1);
-        while (snd_seq_query_next_client(umidi20_alsa_seq, cinfo) >= 0) {
-                int client = snd_seq_client_info_get_client(cinfo);
+	snd_seq_client_info_set_client(cinfo, -1);
+	while (snd_seq_query_next_client(umidi20_alsa_seq, cinfo) >= 0) {
+		int client = snd_seq_client_info_get_client(cinfo);
+
 		/* Skip self. */
 		if (strcmp(snd_seq_client_info_get_name(cinfo), umidi20_alsa_name) == 0)
 			continue;
-                snd_seq_port_info_set_client(pinfo, client);
-                snd_seq_port_info_set_port(pinfo, -1);
-                while (snd_seq_query_next_port(umidi20_alsa_seq, pinfo) >= 0) {
-                        if ((snd_seq_port_info_get_capability(pinfo) & mask) != mask)
+		snd_seq_port_info_set_client(pinfo, client);
+		snd_seq_port_info_set_port(pinfo, -1);
+		while (snd_seq_query_next_port(umidi20_alsa_seq, pinfo) >= 0) {
+			if ((snd_seq_port_info_get_capability(pinfo) & mask) != mask)
 				continue;
 			if (n + 1 < num) {
 				asprintf(&ptr[n], "%s:%s",
-				   snd_seq_client_info_get_name(cinfo),
-				   snd_seq_port_info_get_name(pinfo));
+				    snd_seq_client_info_get_name(cinfo),
+				    snd_seq_port_info_get_name(pinfo));
 				n++;
 			}
 		}
@@ -700,28 +704,28 @@ umidi20_alsa_compare_dev_string(char *ptr, const char *name, int *pidx)
 static int
 umidi20_alsa_find_port(unsigned mask, const char *pname, snd_seq_addr_t *paddr)
 {
-        snd_seq_client_info_t *cinfo;
-        snd_seq_port_info_t *pinfo;
+	snd_seq_client_info_t *cinfo;
+	snd_seq_port_info_t *pinfo;
 	int index = 0;
 
-        snd_seq_client_info_alloca(&cinfo);
-        snd_seq_port_info_alloca(&pinfo);
+	snd_seq_client_info_alloca(&cinfo);
+	snd_seq_port_info_alloca(&pinfo);
 
-        snd_seq_client_info_set_client(cinfo, -1);
-        while (snd_seq_query_next_client(umidi20_alsa_seq, cinfo) >= 0) {
-                int client = snd_seq_client_info_get_client(cinfo);
+	snd_seq_client_info_set_client(cinfo, -1);
+	while (snd_seq_query_next_client(umidi20_alsa_seq, cinfo) >= 0) {
+		int client = snd_seq_client_info_get_client(cinfo);
 
-                snd_seq_port_info_set_client(pinfo, client);
-                snd_seq_port_info_set_port(pinfo, -1);
-                while (snd_seq_query_next_port(umidi20_alsa_seq, pinfo) >= 0) {
+		snd_seq_port_info_set_client(pinfo, client);
+		snd_seq_port_info_set_port(pinfo, -1);
+		while (snd_seq_query_next_port(umidi20_alsa_seq, pinfo) >= 0) {
 			char *ptr;
 			bool found;
 
-                        if ((snd_seq_port_info_get_capability(pinfo) & mask) != mask)
+			if ((snd_seq_port_info_get_capability(pinfo) & mask) != mask)
 				continue;
 			asprintf(&ptr, "%s:%s",
-				 snd_seq_client_info_get_name(cinfo),
-				 snd_seq_port_info_get_name(pinfo));
+			    snd_seq_client_info_get_name(cinfo),
+			    snd_seq_port_info_get_name(pinfo));
 			found = umidi20_alsa_compare_dev_string(ptr, pname, &index);
 			free(ptr);
 
