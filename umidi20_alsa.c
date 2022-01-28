@@ -253,8 +253,7 @@ umidi20_alsa_receive_seq_event(struct snd_seq_event *ev,
 			ev->flags = SND_SEQ_EVENT_LENGTH_VARIABLE;
 			ev->data.ext.len = umidi20_alsa_cmd_to_len[
 			    parse->temp_cmd[0] & 0xF];
-			/* internal hack */
-			memcpy(&ev->data.ext.ptr, parse->temp_cmd + 1, ev->data.ext.len);
+			ev->data.ext.ptr = parse->temp_cmd + 1;
 			return (true);
 		}
 
@@ -391,7 +390,7 @@ umidi20_alsa_write_event(int fd, const snd_seq_event_t *event)
 		buffer[0] |= 0xE0;
 		break;
 	case SND_SEQ_EVENT_SYSEX:
-		write(fd, &event->data.ext.ptr, event->data.ext.len);
+		write(fd, event->data.ext.ptr, event->data.ext.len);
 		return;
 	case SND_SEQ_EVENT_QFRAME:
 		buffer[0] |= 0xF1;
