@@ -550,6 +550,7 @@ umidi20_alsa_worker(void *arg)
 					umidi20_alsa_write_event(fd, event);
 				}
 			}
+			snd_seq_free_event(event);
 		} while (err > 0);
 
 		for (x = 0; x != UMIDI20_N_DEVICES; x++) {
