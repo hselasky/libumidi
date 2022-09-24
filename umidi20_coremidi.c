@@ -288,7 +288,6 @@ umidi20_write_process(void *arg)
 	MIDIPacketList pktList;
 	MIDIPacket *pkt;
 	uint8_t data[1];
-	uint8_t len;
 	int n;
 
 	while (1) {
