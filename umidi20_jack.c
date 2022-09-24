@@ -35,7 +35,6 @@
 #include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <err.h>
 
 #include <jack/jack.h>
 #include <jack/midiport.h>

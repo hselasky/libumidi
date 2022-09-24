@@ -30,7 +30,6 @@
 #include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <err.h>
 
 #include "umidi20.h"
 
