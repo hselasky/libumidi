@@ -384,7 +384,7 @@ umidi20_coremidi_alloc_outputs(void)
 		CFStringRef name;
 		MIDIEndpointRef src = MIDIGetSource(x);
 
-		if (src == NULL)
+		if (src == 0)
 			continue;
 
 		if (noErr == MIDIObjectGetStringProperty(src,
@@ -419,7 +419,7 @@ umidi20_coremidi_alloc_inputs(void)
 		CFStringRef name;
 		MIDIEndpointRef dst = MIDIGetDestination(x);
 
-		if (dst == NULL)
+		if (dst == 0)
 			continue;
 
 		if (noErr == MIDIObjectGetStringProperty(dst,
@@ -622,7 +622,7 @@ umidi20_coremidi_rx_close(uint8_t n)
 
 	umidi20_coremidi_lock();
 	umidi20_pipe_free(&puj->write_fd);
-	puj->input_endpoint = -1U;
+	puj->input_endpoint = 0;
 	umidi20_coremidi_unlock();
 
 	return (0);
@@ -642,7 +642,7 @@ umidi20_coremidi_tx_close(uint8_t n)
 
 	umidi20_coremidi_lock();
 	umidi20_pipe_free(&puj->read_fd);
-	puj->output_endpoint = -1U;
+	puj->output_endpoint = 0;
 	umidi20_coremidi_unlock();
 
 	return (0);
@@ -714,8 +714,8 @@ umidi20_coremidi_init(const char *name)
 		puj = &umidi20_coremidi[n];
 		puj->read_fd = NULL;
 		puj->write_fd = NULL;
-		puj->input_endpoint = -1U;
-		puj->output_endpoint = -1U;
+		puj->input_endpoint = 0;
+		puj->output_endpoint = 0;
 
 		snprintf(devname, sizeof(devname), "midipp.dev%d.TX", (int)n);
 
