@@ -103,7 +103,8 @@ umidi20_cdev_alloc_outputs(void)
 
 	while ((dp = readdir(dirp)) != NULL) {
 		if (strcmp(dp->d_name, ".") == 0 ||
-		    strcmp(dp->d_name, "..") == 0)
+		    strcmp(dp->d_name, "..") == 0 ||
+		    strcmp(dp->d_name, "midistat") == 0)
 			continue;
 #if __BSD_VISIBLE == 0
 		if (asprintf(&stmp, "/dev/%s", dp->d_name) < 0)
