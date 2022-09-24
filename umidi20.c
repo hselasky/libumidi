@@ -193,7 +193,11 @@ umidi20_stop_thread(pthread_t *p_td, pthread_mutex_t *p_mtx)
 		while (pthread_mutex_unlock(p_mtx) == 0)
 			recurse++;
 
+#ifdef _WIN32
+		pthread_kill(td, SIGINT);
+#else
 		pthread_kill(td, SIGURG);
+#endif
 		pthread_join(td, NULL);
 
 		while (recurse--)
