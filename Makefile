@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011-2021 Hans Petter Selasky. All rights reserved.
+# Copyright (c) 2011-2022 Hans Petter Selasky. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -47,7 +47,14 @@ WARNS=		3
 SRCS+=		umidi20.c
 SRCS+=		umidi20_file.c
 SRCS+=		umidi20_gen.c
+SRCS+=		umidi20_pipe.c
 INCS=		umidi20.h
+
+.if defined(HAVE_CDEV)
+SRCS+=		umidi20_cdev.c
+.else
+SRCS+=		umidi20_cdev_dummy.c
+.endif
 
 .if defined(HAVE_ALSA)
 SRCS+=		umidi20_alsa.c

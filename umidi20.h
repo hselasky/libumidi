@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006-2019 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2006-2022 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -86,6 +86,7 @@ struct umidi20_event;
 struct umidi20_track;
 struct umidi20_song;
 struct umidi20_timer_entry;
+struct umidi20_pipe;
 
 typedef void (umidi20_event_callback_t)(uint8_t unit, void *arg, struct umidi20_event *event, uint8_t *drop_event);
 typedef void (umidi20_timer_callback_t)(void *arg);
@@ -312,10 +313,9 @@ struct umidi20_device {
 	uint32_t start_position;
 	uint32_t end_offset;
 
-	int	file_no;		/* file number */
+	struct umidi20_pipe **pipe;
 
 	uint8_t	device_no;		/* device number */
-
 	uint8_t	any_key_start;		/* a key start was transmitted */
 	uint8_t	enabled_usr;		/* enabled by user */
 	uint8_t	enabled_cfg;		/* enabled by config */
@@ -488,7 +488,6 @@ extern void umidi20_track_compute_max_min(struct umidi20_track *track);
 extern void umidi20_set_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval);
 extern void umidi20_update_timer(umidi20_timer_callback_t *fn, void *arg, uint32_t ms_interval, uint8_t do_sync);
 extern void umidi20_unset_timer(umidi20_timer_callback_t *fn, void *arg);
-extern int umidi20_pipe(int [2]);
 
 /*--------------------------------------------------------------------------*
  * prototypes from "umidi20_file.c"
@@ -502,15 +501,29 @@ extern uint8_t umidi20_save_file(struct umidi20_song *song, uint8_t **pptr, uint
 #define	pthread_mutex_assert(mtx, flags) do { } while (0)
 
 /*--------------------------------------------------------------------------*
- * prototypes from "umidi20_jack.c"
+ * prototypes from "umidi20_cdev.c"
+ *--------------------------------------------------------------------------*/
+const char **umidi20_cdev_alloc_inputs(void);
+const char **umidi20_cdev_alloc_outputs(void);
+void	umidi20_cdev_free_inputs(const char **);
+void	umidi20_cdev_free_outputs(const char **);
+
+struct umidi20_pipe **umidi20_cdev_rx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_cdev_tx_open(uint8_t n, const char *name);
+int	umidi20_cdev_rx_close(uint8_t n);
+int	umidi20_cdev_tx_close(uint8_t n);
+int	umidi20_cdev_init(const char *name);
+
+/*--------------------------------------------------------------------------*
+ * prototypes from "umidi20_alsa.c"
  *--------------------------------------------------------------------------*/
 const char **umidi20_alsa_alloc_inputs(void);
 const char **umidi20_alsa_alloc_outputs(void);
-void umidi20_alsa_free_inputs(const char **);
-void umidi20_alsa_free_outputs(const char **);
+void	umidi20_alsa_free_inputs(const char **);
+void	umidi20_alsa_free_outputs(const char **);
 
-int	umidi20_alsa_rx_open(uint8_t n, const char *name);
-int	umidi20_alsa_tx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_alsa_rx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_alsa_tx_open(uint8_t n, const char *name);
 int	umidi20_alsa_rx_close(uint8_t n);
 int	umidi20_alsa_tx_close(uint8_t n);
 int	umidi20_alsa_init(const char *name);
@@ -520,11 +533,11 @@ int	umidi20_alsa_init(const char *name);
  *--------------------------------------------------------------------------*/
 const char **umidi20_jack_alloc_inputs(void);
 const char **umidi20_jack_alloc_outputs(void);
-void umidi20_jack_free_inputs(const char **);
-void umidi20_jack_free_outputs(const char **);
+void	umidi20_jack_free_inputs(const char **);
+void	umidi20_jack_free_outputs(const char **);
 
-int	umidi20_jack_rx_open(uint8_t n, const char *name);
-int	umidi20_jack_tx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_jack_rx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_jack_tx_open(uint8_t n, const char *name);
 int	umidi20_jack_rx_close(uint8_t n);
 int	umidi20_jack_tx_close(uint8_t n);
 int	umidi20_jack_init(const char *name);
@@ -534,11 +547,11 @@ int	umidi20_jack_init(const char *name);
  *--------------------------------------------------------------------------*/
 const char **umidi20_coremidi_alloc_inputs(void);
 const char **umidi20_coremidi_alloc_outputs(void);
-void umidi20_coremidi_free_inputs(const char **);
-void umidi20_coremidi_free_outputs(const char **);
+void	umidi20_coremidi_free_inputs(const char **);
+void	umidi20_coremidi_free_outputs(const char **);
 
-int	umidi20_coremidi_rx_open(uint8_t n, const char *name);
-int	umidi20_coremidi_tx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_coremidi_rx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_coremidi_tx_open(uint8_t n, const char *name);
 int	umidi20_coremidi_rx_close(uint8_t n);
 int	umidi20_coremidi_tx_close(uint8_t n);
 int	umidi20_coremidi_init(const char *name);
@@ -548,14 +561,24 @@ int	umidi20_coremidi_init(const char *name);
  *--------------------------------------------------------------------------*/
 const char **umidi20_android_alloc_inputs(void);
 const char **umidi20_android_alloc_outputs(void);
-void umidi20_android_free_inputs(const char **);
-void umidi20_android_free_outputs(const char **);
+void	umidi20_android_free_inputs(const char **);
+void	umidi20_android_free_outputs(const char **);
 
-int	umidi20_android_rx_open(uint8_t n, const char *name);
-int	umidi20_android_tx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_android_rx_open(uint8_t n, const char *name);
+struct umidi20_pipe **umidi20_android_tx_open(uint8_t n, const char *name);
 int	umidi20_android_rx_close(uint8_t n);
 int	umidi20_android_tx_close(uint8_t n);
 int	umidi20_android_init(const char *name, void *context);
+
+/*--------------------------------------------------------------------------*
+ * prototypes from "umidi20_pipe.c"
+ *--------------------------------------------------------------------------*/
+typedef void (umidi20_pipe_callback_t)(void);
+void	umidi20_pipe_init(void);
+void	umidi20_pipe_alloc(struct umidi20_pipe **, umidi20_pipe_callback_t *);
+void	umidi20_pipe_free(struct umidi20_pipe **);
+ssize_t	umidi20_pipe_read_data(struct umidi20_pipe **, uint8_t *, size_t);
+ssize_t	umidi20_pipe_write_data(struct umidi20_pipe **, const uint8_t *, size_t);
 
 /*--------------------------------------------------------------------------*
  * MIDI generator code

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Hans Petter Selasky <hselasky@FreeBSD.org>
+ * Copyright (c) 2013-2022 Hans Petter Selasky <hselasky@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,18 +58,20 @@ struct umidi20_coremidi {
 	MIDIPortRef input_port;
 	MIDIEndpointRef output_endpoint;
 	MIDIEndpointRef input_endpoint;
-	int	read_fd[2];
-	int	write_fd[2];
+	struct umidi20_pipe *read_fd;
+	struct umidi20_pipe *write_fd;
 	char   *read_name;
 	char   *write_name;
 	struct umidi20_parse parse;
 };
 
 static pthread_mutex_t umidi20_coremidi_mtx;
+static pthread_cond_t umidi20_coremidi_cv;
 static pthread_t umidi20_coremidi_thread;
 static MIDIClientRef umidi20_coremidi_client;
 static struct umidi20_coremidi umidi20_coremidi[UMIDI20_N_DEVICES];
-static int umidi20_coremidi_init_done;
+static uint8_t umidi20_coremidi_init_done;
+static uint8_t umidi20_coremidi_tx_work;
 static const char *umidi20_coremidi_name;
 
 #ifdef HAVE_DEBUG
@@ -94,8 +96,7 @@ umidi20_dup_cfstr(CFStringRef str)
 }
 
 static CFStringRef
-umidi20_create_cfstr(const char *str)
-{
+umidi20_create_cfstr(const char *str){
 	return (CFStringCreateWithCString(kCFAllocatorDefault,
 	    str, kCFStringEncodingMacRoman));
 }
@@ -116,16 +117,13 @@ static void
 umidi20_read_event(const MIDIPacketList * pktList, void *refCon, void *connRefCon)
 {
 	struct umidi20_coremidi *puj = refCon;
+	const MIDIPacket *packet = &pktList->packet[0];
 	uint32_t n;
 
 	umidi20_coremidi_lock();
-	if (puj->write_fd[1] > -1) {
-		const MIDIPacket *packet = &pktList->packet[0];
-
-		for (n = 0; n != pktList->numPackets; n++) {
-			write(puj->write_fd[1], packet->data, packet->length);
-			packet = MIDIPacketNext(packet);
-		}
+	for (n = 0; n != pktList->numPackets; n++) {
+		umidi20_pipe_write_data(&puj->write_fd, packet->data, packet->length);
+		packet = MIDIPacketNext(packet);
 	}
 	umidi20_coremidi_unlock();
 }
@@ -295,11 +293,18 @@ umidi20_write_process(void *arg)
 
 	while (1) {
 		umidi20_coremidi_lock();
+		while (umidi20_coremidi_tx_work == 0)
+			pthread_cond_wait(&umidi20_coremidi_cv, &umidi20_coremidi_mtx);
+		umidi20_coremidi_tx_work = 0;
+
 		for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 			struct umidi20_coremidi *puj = umidi20_coremidi + n;
+			ssize_t len;
 
-			if (puj->read_fd[0] > -1) {
-				while (read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
+			while (1) {
+				len = umidi20_pipe_read_data(
+				    &puj->read_fd, data, sizeof(data));
+				if (len > 0) {
 					if (umidi20_convert_to_usb(puj, 0, data[0])) {
 						len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
 						if (len == 0)
@@ -308,17 +313,17 @@ umidi20_write_process(void *arg)
 						timeStamp = mach_absolute_time();
 						pkt = MIDIPacketListInit(&pktList);
 						pkt = MIDIPacketListAdd(&pktList, sizeof(pktList),
-						    pkt, (MIDITimeStamp)mach_absolute_time(),
+						    pkt, (MIDITimeStamp) mach_absolute_time(),
 						    len, &puj->parse.temp_cmd[1]);
 						MIDISend(puj->output_port,
 						    puj->output_endpoint, &pktList);
 					}
+				} else {
+					break;
 				}
 			}
 		}
 		umidi20_coremidi_unlock();
-
-		usleep(1000);
 	}
 	return (NULL);
 }
@@ -344,6 +349,7 @@ umidi20_coremidi_uniq_inputs(char **ptr)
 		for (z = 0, y = x + 1; y != n; y++) {
 			if (strcmp(ptr[x], ptr[y]) == 0) {
 				size_t s = strlen(ptr[y]) + 16;
+
 				pstr = ptr[y];
 				ptr[y] = malloc(s);
 				if (ptr[y] == NULL) {
@@ -499,24 +505,23 @@ umidi20_coremidi_compare_dev_string(CFStringRef str, const char *name, int *pidx
 	return (0);
 }
 
-int
+struct umidi20_pipe **
 umidi20_coremidi_rx_open(uint8_t n, const char *name)
 {
 	struct umidi20_coremidi *puj;
 	MIDIEndpointRef src = 0;
 	unsigned long x;
 	unsigned long y;
-	int error;
 	int index = 0;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
-		return (-1);
+		return (NULL);
 
 	puj = &umidi20_coremidi[n];
 
 	/* check if already opened */
-	if (puj->write_fd[1] > -1 || puj->write_fd[0] > -1)
-		return (-1);
+	if (puj->write_fd != NULL);
+	return (NULL);
 
 	y = MIDIGetNumberOfSources();
 	for (x = 0; x != y; x++) {
@@ -531,7 +536,7 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 	}
 
 	if (x == y)
-		return (-1);
+		return (NULL);
 
 	umidi20_coremidi_lock();
 	puj->input_endpoint = src;
@@ -541,34 +546,38 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 
 	/* create looback pipe */
 	umidi20_coremidi_lock();
-	error = umidi20_pipe(puj->write_fd);
+	umidi20_pipe_alloc(&puj->write_fd, NULL);
 	umidi20_coremidi_unlock();
 
-	if (error) {
-		MIDIPortDisconnectSource(puj->input_port, src);
-		return (-1);
-	}
-	return (puj->write_fd[0]);
+	return (&puj->write_fd);
 }
 
-int
+static void
+umidi20_coremidi_write_callback(void)
+{
+	umidi20_coremidi_lock();
+	umidi20_coremidi_tx_work = 1;
+	pthread_cond_broadcast(&umidi20_coremidi_cv);
+	umidi20_coremidi_unlock();
+}
+
+struct umidi20_pipe **
 umidi20_coremidi_tx_open(uint8_t n, const char *name)
 {
 	struct umidi20_coremidi *puj;
 	MIDIEndpointRef dst = 0;
 	unsigned long x;
 	unsigned long y;
-	int error;
 	int index = 0;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_coremidi_init_done == 0)
-		return (-1);
+		return (NULL);
 
 	puj = &umidi20_coremidi[n];
 
 	/* check if already opened */
-	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1)
-		return (-1);
+	if (puj->read_fd != NULL)
+		return (NULL);
 
 	y = MIDIGetNumberOfDestinations();
 	for (x = 0; x != y; x++) {
@@ -583,7 +592,7 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 	}
 
 	if (x == y)
-		return (-1);
+		return (NULL);
 
 	umidi20_coremidi_lock();
 	puj->output_endpoint = dst;
@@ -593,18 +602,11 @@ umidi20_coremidi_tx_open(uint8_t n, const char *name)
 
 	/* create looback pipe */
 	umidi20_coremidi_lock();
-	error = umidi20_pipe(puj->read_fd);
-	if (error == 0) {
-		fcntl(puj->read_fd[0], F_SETFL, (int)O_NONBLOCK);
-		memset(&puj->parse, 0, sizeof(puj->parse));
-	}
+	umidi20_pipe_alloc(&puj->read_fd, &umidi20_coremidi_write_callback);
+	memset(&puj->parse, 0, sizeof(puj->parse));
 	umidi20_coremidi_unlock();
 
-	if (error) {
-		MIDIPortDisconnectSource(puj->output_port, dst);
-		return (-1);
-	}
-	return (puj->read_fd[1]);
+	return (&puj->read_fd);
 }
 
 int
@@ -620,10 +622,7 @@ umidi20_coremidi_rx_close(uint8_t n)
 	MIDIPortDisconnectSource(puj->input_port, puj->input_endpoint);
 
 	umidi20_coremidi_lock();
-	close(puj->write_fd[0]);
-	close(puj->write_fd[1]);
-	puj->write_fd[0] = -1;
-	puj->write_fd[1] = -1;
+	umidi20_pipe_free(&puj->write_fd);
 	puj->input_endpoint = NULL;
 	umidi20_coremidi_unlock();
 
@@ -643,10 +642,7 @@ umidi20_coremidi_tx_close(uint8_t n)
 	MIDIPortDisconnectSource(puj->output_port, puj->output_endpoint);
 
 	umidi20_coremidi_lock();
-	close(puj->read_fd[0]);
-	close(puj->read_fd[1]);
-	puj->read_fd[0] = -1;
-	puj->read_fd[1] = -1;
+	umidi20_pipe_free(&puj->read_fd);
 	puj->output_endpoint = NULL;
 	umidi20_coremidi_unlock();
 
@@ -654,7 +650,7 @@ umidi20_coremidi_tx_close(uint8_t n)
 }
 
 static void
-umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
+umidi20_coremidi_notify(const MIDINotification * message, void *refCon)
 {
 	MIDIEndpointRef ref;
 	int n;
@@ -664,7 +660,7 @@ umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
 
 	if (message->messageID != kMIDIMsgSetupChanged)
 		return;
-    
+
 	y = MIDIGetNumberOfSources();
 	z = MIDIGetNumberOfDestinations();
 
@@ -678,11 +674,8 @@ umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
 				break;
 		}
 		if (x == y) {
-			if (puj->write_fd[1] > -1) {
-				close(puj->write_fd[1]);
-				puj->write_fd[1] = -1;
-				DPRINTF("Closed receiver %d\n", n);
-			}
+			umidi20_pipe_free(&puj->write_fd);
+			DPRINTF("Closed receiver %d\n", n);
 		}
 
 		for (x = 0; x != z; x++) {
@@ -690,12 +683,9 @@ umidi20_coremidi_notify(const MIDINotification *message, void *refCon)
 			if (puj->output_endpoint == ref)
 				break;
 		}
-		if (x == z) {         
-			if (puj->read_fd[0] > -1) {
-				close(puj->read_fd[0]);
-				puj->read_fd[0] = -1;
-				DPRINTF("Closed transmitter %d\n", n);
-			}
+		if (x == z) {
+			umidi20_pipe_free(&puj->read_fd);
+			DPRINTF("Closed transmitter %d\n", n);
 		}
 	}
 	umidi20_coremidi_unlock();
@@ -713,6 +703,7 @@ umidi20_coremidi_init(const char *name)
 		return (-1);
 
 	pthread_mutex_init(&umidi20_coremidi_mtx, NULL);
+	pthread_cond_init(&umidi20_coremidi_cv, NULL);
 
 	MIDIClientCreate(umidi20_create_cfstr(umidi20_coremidi_name),
 	    umidi20_coremidi_notify, NULL, &umidi20_coremidi_client);
@@ -722,10 +713,8 @@ umidi20_coremidi_init(const char *name)
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 		puj = &umidi20_coremidi[n];
-		puj->read_fd[0] = -1;
-		puj->read_fd[1] = -1;
-		puj->write_fd[0] = -1;
-		puj->write_fd[1] = -1;
+		puj->read_fd = NULL;
+		puj->write_fd = NULL;
 
 		snprintf(devname, sizeof(devname), "midipp.dev%d.TX", (int)n);
 

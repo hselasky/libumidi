@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017 Hans Petter Selasky <hselasky@FreeBSD.org>
+ * Copyright (c) 2017-2022 Hans Petter Selasky <hselasky@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,22 +51,22 @@ struct umidi20_parse {
 };
 
 struct umidi20_android {
-	int	read_fd[2];
-	int	write_fd[2];
+	struct umidi20_pipe *read_fd;
+	struct umidi20_pipe *write_fd;
 	struct umidi20_parse parse;
 };
 
 struct umidi20_class_recv {
-  	jclass class;
+	jclass	class;
 };
 
 struct umidi20_class_main {
-  	jclass class;
+	jclass	class;
 	jmethodID constructor;
 };
 
 struct umidi20_class {
-	void *activity;
+	void   *activity;
 	struct umidi20_class_recv recv;
 	struct umidi20_class_main main;
 };
@@ -77,7 +77,8 @@ static pthread_mutex_t umidi20_android_mtx;
 static pthread_cond_t umidi20_android_cv;
 static pthread_t umidi20_android_thread;
 static struct umidi20_android umidi20_android[UMIDI20_N_DEVICES];
-static int umidi20_android_init_done;
+static uint8_t umidi20_android_init_done;
+static uint8_t umidi20_android_tx_work;
 static int umidi20_android_register_done;
 static const char *umidi20_android_name;
 static int umidi20_action_current;
@@ -111,7 +112,7 @@ enum {
 #endif
 
 static char *
-umidi20_dup_jstring(JNIEnv *env, jstring str)
+umidi20_dup_jstring(JNIEnv * env, jstring str)
 {
 	char *ptr;
 	jsize len = UMIDI20_STRING_LENGTH(env, str) + 1;
@@ -162,7 +163,7 @@ umidi20_action_locked(int a, int b)
 		umidi20_android_wait();
 
 	if ((a & 0xFF) == UMIDI20_CMD_SEND_MIDI) {
-	  	umidi20_action_busy = 1;
+		umidi20_action_busy = 1;
 		umidi20_action_current = b;
 		umidi20_android_wakeup();
 
@@ -175,31 +176,27 @@ umidi20_action_locked(int a, int b)
 }
 
 static void
-umidi20_android_onSendNative(JNIEnv *env, jobject obj, jobject msg, int offset,
+umidi20_android_onSendNative(JNIEnv * env, jobject obj, jobject msg, int offset,
     int count, int device)
 {
 	struct umidi20_android *puj;
 	uint8_t buffer[count];
-	uint8_t x;
 
 	UMIDI20_MTOD(env, GetByteArrayRegion, msg, offset, count, buffer);
-	
+
 	umidi20_android_lock();
 	puj = &umidi20_android[device];
-	if (puj->write_fd[1] >= 0)
-		write(puj->write_fd[1], buffer, count);
+	umidi20_pipe_write_data(&puj->write_fd, buffer, count);
 	umidi20_android_unlock();
 }
 
 static jobject
-umidi20_android_getActivity(JNIEnv *env, jobject obj)
-{
+umidi20_android_getActivity(JNIEnv * env, jobject obj) {
 	return (umidi20_class.activity);
 }
 
 static jint
-umidi20_android_getAction(JNIEnv *env, jobject obj)
-{
+umidi20_android_getAction(JNIEnv * env, jobject obj) {
 	jint retval;
 
 	umidi20_android_lock();
@@ -219,7 +216,7 @@ umidi20_android_getAction(JNIEnv *env, jobject obj)
 static char **umidi20_rx_dev_ptr;
 
 static void
-umidi20_android_setRxDevices(JNIEnv *env, jobject obj, int num)
+umidi20_android_setRxDevices(JNIEnv * env, jobject obj, int num)
 {
 	umidi20_android_free_inputs(umidi20_rx_dev_ptr);
 	umidi20_rx_dev_ptr = calloc(num + 1, sizeof(void *));
@@ -228,20 +225,20 @@ umidi20_android_setRxDevices(JNIEnv *env, jobject obj, int num)
 static char **umidi20_tx_dev_ptr;
 
 static void
-umidi20_android_setTxDevices(JNIEnv *env, jobject obj, int num)
+umidi20_android_setTxDevices(JNIEnv * env, jobject obj, int num)
 {
 	umidi20_android_free_outputs(umidi20_tx_dev_ptr);
 	umidi20_tx_dev_ptr = calloc(num + 1, sizeof(void *));
 }
 
 static void
-umidi20_android_storeRxDevice(JNIEnv *env, jobject obj, int num, jstring desc)
+umidi20_android_storeRxDevice(JNIEnv * env, jobject obj, int num, jstring desc)
 {
 	umidi20_rx_dev_ptr[num] = umidi20_dup_jstring(env, desc);
 }
 
 static void
-umidi20_android_storeTxDevice(JNIEnv *env, jobject obj, int num, jstring desc)
+umidi20_android_storeTxDevice(JNIEnv * env, jobject obj, int num, jstring desc)
 {
 	umidi20_tx_dev_ptr[num] = umidi20_dup_jstring(env, desc);
 }
@@ -409,31 +406,37 @@ umidi20_write_process(void *arg)
 
 	while (1) {
 		umidi20_android_lock();
+		while (umidi20_android_tx_work == 0)
+			umidi20_android_wait();
+		umidi20_android_tx_work = 0;
+
 		for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 			struct umidi20_android *puj = umidi20_android + n;
+			ssize_t len;
 
-			while (puj->read_fd[0] > -1 &&
-			       read(puj->read_fd[0], data, sizeof(data)) == sizeof(data)) {
+			while (1) {
+				len = umidi20_pipe_read_data(&puj->read_fd, data, sizeof(data));
+				if (len > 0) {
+					/* parse MIDI stream */
+					if (umidi20_convert_to_usb(puj, 0, data[0]) == 0)
+						continue;
 
-				/* parse MIDI stream */
-				if (umidi20_convert_to_usb(puj, 0, data[0]) == 0)
-					continue;
+					len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
+					if (len == 0)
+						continue;
 
-				len = umidi20_cmd_to_len[puj->parse.temp_cmd[0] & 0xF];
-				if (len == 0)
-					continue;
-
-				umidi20_action_locked(UMIDI20_CMD_SEND_MIDI |
-						      (n << 8) | (len << 12),
-						      (puj->parse.temp_cmd[1]) |
-						      (puj->parse.temp_cmd[2] << 8) |
-						      (puj->parse.temp_cmd[3] << 16) |
-						      (puj->parse.temp_cmd[4] << 24));
+					umidi20_action_locked(UMIDI20_CMD_SEND_MIDI |
+					    (n << 8) | (len << 12),
+					    (puj->parse.temp_cmd[1]) |
+					    (puj->parse.temp_cmd[2] << 8) |
+					    (puj->parse.temp_cmd[3] << 16) |
+					    (puj->parse.temp_cmd[4] << 24));
+				} else {
+					break;
+				}
 			}
 		}
 		umidi20_android_unlock();
-
-		usleep(1000);
 	}
 	return (NULL);
 }
@@ -459,6 +462,7 @@ umidi20_android_uniq_inputs(char **ptr)
 		for (z = 0, y = x + 1; y != n; y++) {
 			if (strcmp(ptr[x], ptr[y]) == 0) {
 				size_t s = strlen(ptr[y]) + 16;
+
 				pstr = ptr[y];
 				ptr[y] = malloc(s);
 				if (ptr[y] == NULL) {
@@ -478,7 +482,7 @@ umidi20_android_dup_io(const char **ppstr)
 {
 	unsigned long n = 0;
 	char **retval;
-	
+
 
 	for (n = 0; ppstr[n] != NULL; n++)
 		;
@@ -549,21 +553,20 @@ umidi20_android_free_inputs(const char **ports)
 	free(ports);
 }
 
-int
+struct umidi20_pipe **
 umidi20_android_rx_open(uint8_t n, const char *name)
 {
 	struct umidi20_android *puj;
 	unsigned long x;
-	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_android_init_done == 0)
-		return (-1);
+		return (NULL);
 
 	puj = &umidi20_android[n];
 
 	/* check if already opened */
-	if (puj->write_fd[1] > -1 || puj->write_fd[0] > -1 || umidi20_rx_dev_ptr == NULL)
-		return (-1);
+	if (puj->write_fd != NULL || umidi20_rx_dev_ptr == NULL)
+		return (NULL);
 
 	for (x = 0; umidi20_rx_dev_ptr[x] != NULL; x++) {
 		if (strcmp(umidi20_rx_dev_ptr[x], name) == 0)
@@ -572,37 +575,40 @@ umidi20_android_rx_open(uint8_t n, const char *name)
 
 	/* check if device not found */
 	if (umidi20_rx_dev_ptr[x] == NULL)
-		return (-1);
+		return (NULL);
 
 	umidi20_android_lock();
 	umidi20_action_locked(UMIDI20_CMD_OPEN_RX | (n << 8) | (x << 12), 0);
 	/* create looback pipe */
-	error = umidi20_pipe(puj->write_fd);
-	/* check for error */
-	if (error != 0) {
-		umidi20_action_locked(UMIDI20_CMD_CLOSE_RX | (n << 8) | (x << 12), 0);
-		puj->write_fd[0] = -1;
-	}
+	umidi20_pipe_aloc(&puj->write_fd, NULL);
 	umidi20_android_unlock();
 
-	return (puj->write_fd[0]);
+	return (&puj->write_fd);
 }
 
-int
+static void
+umidi20_android_write_callback(void)
+{
+	umidi20_android_lock();
+	umidi20_android_tx_work = 1;
+	pthread_cond_broadcast(&umidi20_android_cv);
+	umidi20_android_unlock();
+}
+
+struct umidi20_pipe **
 umidi20_android_tx_open(uint8_t n, const char *name)
 {
 	struct umidi20_android *puj;
 	unsigned long x;
-	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_android_init_done == 0)
-		return (-1);
+		return (NULL);
 
 	puj = &umidi20_android[n];
 
 	/* check if already opened */
-	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1 || umidi20_tx_dev_ptr == NULL)
-		return (-1);
+	if (puj->read_fd != NULL || umidi20_tx_dev_ptr == NULL)
+		return (NULL);
 
 	for (x = 0; umidi20_tx_dev_ptr[x] != NULL; x++) {
 		if (strcmp(umidi20_tx_dev_ptr[x], name) == 0)
@@ -611,23 +617,17 @@ umidi20_android_tx_open(uint8_t n, const char *name)
 
 	/* check if device not found */
 	if (umidi20_tx_dev_ptr[x] == NULL)
-		return (-1);
+		return (NULL);
 
 	umidi20_android_lock();
 	umidi20_action_locked(UMIDI20_CMD_OPEN_TX | (n << 8) | (x << 12), 0);
 
 	/* create looback pipe */
-	error = umidi20_pipe(puj->read_fd);
-	if (error == 0) {
-		fcntl(puj->read_fd[0], F_SETFL, (int)O_NONBLOCK);
-		memset(&puj->parse, 0, sizeof(puj->parse));
-	} else {
-		umidi20_action_locked(UMIDI20_CMD_CLOSE_TX | (n << 8) | (x << 12), 0);
-		puj->read_fd[1] = -1;
-	}
+	umidi20_pipe_alloc(&puj->read_fd, &umidi20_android_write_callback);
+	memset(&puj->parse, 0, sizeof(puj->parse));
 	umidi20_android_unlock();
 
-	return (puj->read_fd[1]);
+	return (&puj->read_fd);
 }
 
 int
@@ -641,10 +641,7 @@ umidi20_android_rx_close(uint8_t n)
 	puj = &umidi20_android[n];
 
 	umidi20_android_lock();
-	close(puj->write_fd[0]);
-	close(puj->write_fd[1]);
-	puj->write_fd[0] = -1;
-	puj->write_fd[1] = -1;
+	umidi20_pipe_free(&puj->write_fd);
 	umidi20_action_locked(UMIDI20_CMD_CLOSE_RX | (n << 8), 0);
 	umidi20_android_unlock();
 
@@ -662,10 +659,7 @@ umidi20_android_tx_close(uint8_t n)
 	puj = &umidi20_android[n];
 
 	umidi20_android_lock();
-	close(puj->read_fd[0]);
-	close(puj->read_fd[1]);
-	puj->read_fd[0] = -1;
-	puj->read_fd[1] = -1;
+	umidi20_pipe_free(&puj->read_fd);
 	umidi20_action_locked(UMIDI20_CMD_CLOSE_TX | (n << 8), 0);
 	umidi20_android_unlock();
 
@@ -673,8 +667,7 @@ umidi20_android_tx_close(uint8_t n)
 }
 
 static jclass
-umidi20_android_find_class(JNIEnv *env, const char *name)
-{
+umidi20_android_find_class(JNIEnv * env, const char *name){
 	jclass class;
 
 	class = UMIDI20_MTOD(env, FindClass, name);
@@ -682,6 +675,7 @@ umidi20_android_find_class(JNIEnv *env, const char *name)
 		DPRINTF("Class %s not found\n");
 	} else {
 		jclass nclass;
+
 		nclass = UMIDI20_MTOD(env, NewGlobalRef, class);
 		UMIDI20_MTOD(env, DeleteLocalRef, class);
 		class = nclass;
@@ -693,18 +687,18 @@ umidi20_android_find_class(JNIEnv *env, const char *name)
 	(umidi20_class.name.class = umidi20_android_find_class(env, str))
 
 JNIEXPORT jint
-JNI_OnLoad(JavaVM *jvm, void *reserved)
+JNI_OnLoad(JavaVM * jvm, void *reserved)
 {
 	static const JNINativeMethod recv[] = {
-		{ "onSendNative", "([BIII)V", (void *)&umidi20_android_onSendNative },
+		{"onSendNative", "([BIII)V", (void *)&umidi20_android_onSendNative},
 	};
 	static const JNINativeMethod main[] = {
-		{ "getAction", "()I", (void *)&umidi20_android_getAction },
-		{ "getActivity", "()Landroid/app/Activity;", (void *)&umidi20_android_getActivity },
-		{ "setRxDevices", "(I)V", (void *)&umidi20_android_setRxDevices },
-		{ "setTxDevices", "(I)V", (void *)&umidi20_android_setTxDevices },
-		{ "storeRxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeRxDevice },
-		{ "storeTxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeTxDevice },
+		{"getAction", "()I", (void *)&umidi20_android_getAction},
+		{"getActivity", "()Landroid/app/Activity;", (void *)&umidi20_android_getActivity},
+		{"setRxDevices", "(I)V", (void *)&umidi20_android_setRxDevices},
+		{"setTxDevices", "(I)V", (void *)&umidi20_android_setTxDevices},
+		{"storeRxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeRxDevice},
+		{"storeTxDevice", "(ILjava/lang/String;)V", (void *)&umidi20_android_storeTxDevice},
 	};
 	JNIEnv *env;
 	jobject obj;
@@ -720,11 +714,11 @@ JNI_OnLoad(JavaVM *jvm, void *reserved)
 		return (JNI_ERR);
 
 	if (UMIDI20_MTOD(env, RegisterNatives, umidi20_class.recv.class,
-			 &recv[0], sizeof(recv) / sizeof(recv[0])))
+	    &recv[0], sizeof(recv) / sizeof(recv[0])))
 		return (JNI_ERR);
 
 	if (UMIDI20_MTOD(env, RegisterNatives, umidi20_class.main.class,
-			 &main[0], sizeof(main) / sizeof(main[0])))
+	    &main[0], sizeof(main) / sizeof(main[0])))
 		return (JNI_ERR);
 
 	umidi20_class.main.constructor = UMIDI20_MTOD(env, GetMethodID,
@@ -760,10 +754,8 @@ umidi20_android_init(const char *name, void *activity)
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 		puj = &umidi20_android[n];
-		puj->read_fd[0] = -1;
-		puj->read_fd[1] = -1;
-		puj->write_fd[0] = -1;
-		puj->write_fd[1] = -1;
+		puj->read_fd = NULL;
+		puj->write_fd = NULL;
 	}
 
 	if (pthread_create(&umidi20_android_thread, NULL,

@@ -51,8 +51,8 @@ struct umidi20_alsa_parse {
 };
 
 struct umidi20_alsa {
-	int	read_fd[2];
-	int	write_fd[2];
+	struct umidi20_pipe *read_fd;
+	struct umidi20_pipe *write_fd;
 	snd_seq_addr_t read_addr;
 	snd_seq_addr_t write_addr;
 	struct umidi20_alsa_parse parse;
@@ -61,8 +61,10 @@ struct umidi20_alsa {
 static snd_seq_t *umidi20_alsa_seq;
 static struct umidi20_alsa umidi20_alsa[UMIDI20_N_DEVICES];
 static const char *umidi20_alsa_name;
-static uint8_t umidi20_alsa_init_done;
 static pthread_mutex_t umidi20_alsa_mtx;
+static pthread_cond_t umidi20_alsa_cv;
+static uint8_t umidi20_alsa_init_done;
+static uint8_t umidi20_alsa_tx_work;
 
 static const uint8_t umidi20_alsa_cmd_to_len[16] = {
 	[0x0] = 0,			/* reserved */
@@ -237,11 +239,11 @@ umidi20_alsa_addr_compare(const snd_seq_addr_t *pa, const snd_seq_addr_t *pb)
 
 static bool
 umidi20_alsa_receive_seq_event(struct snd_seq_event *ev,
-    struct umidi20_alsa_parse *parse, int fd)
+    struct umidi20_alsa_parse *parse, struct umidi20_pipe **pp)
 {
 	uint8_t buffer[1];
 
-	while (read(fd, buffer, sizeof(buffer)) == 1) {
+	while (umidi20_pipe_read_data(pp, buffer, sizeof(buffer)) == 1) {
 		switch (umidi20_alsa_midi_convert(parse, 0, buffer[0])) {
 		case 0:
 			continue;
@@ -362,7 +364,7 @@ umidi20_alsa_receive_seq_event(struct snd_seq_event *ev,
 }
 
 static void
-umidi20_alsa_write_event(int fd, const snd_seq_event_t *event)
+umidi20_alsa_write_event(struct umidi20_pipe **pp, const snd_seq_event_t *event)
 {
 	uint8_t buffer[3] = {};
 	int len;
@@ -390,7 +392,7 @@ umidi20_alsa_write_event(int fd, const snd_seq_event_t *event)
 		buffer[0] |= 0xE0;
 		break;
 	case SND_SEQ_EVENT_SYSEX:
-		write(fd, event->data.ext.ptr, event->data.ext.len);
+		umidi20_pipe_write_data(pp, event->data.ext.ptr, event->data.ext.len);
 		return;
 	case SND_SEQ_EVENT_QFRAME:
 		buffer[0] |= 0xF1;
@@ -467,51 +469,23 @@ umidi20_alsa_write_event(int fd, const snd_seq_event_t *event)
 		len = 1;
 		break;
 	}
-	write(fd, buffer, len);
-}
-
-static void
-umidi20_alsa_close_fd(int *pfd)
-{
-	int fd;
-
-	umidi20_alsa_lock();
-	fd = *pfd;
-	*pfd = -1;
-	umidi20_alsa_unlock();
-
-	if (fd > -1)
-		close(fd);
+	umidi20_pipe_write_data(pp, buffer, len);
 }
 
 static void *
-umidi20_alsa_worker(void *arg)
+umidi20_alsa_rx_worker(void *arg)
 {
 	snd_seq_event_t *event;
 	int nfds;
 	int err;
 
-	nfds = UMIDI20_N_DEVICES + snd_seq_poll_descriptors_count(umidi20_alsa_seq, POLLIN);
+	nfds = snd_seq_poll_descriptors_count(umidi20_alsa_seq, POLLIN);
 
 	while (1) {
 		struct pollfd fds[nfds];
 		int x;
 
-		snd_seq_poll_descriptors(umidi20_alsa_seq,
-		    fds, nfds - UMIDI20_N_DEVICES, POLLIN);
-
-		umidi20_alsa_lock();
-		for (x = 0; x != UMIDI20_N_DEVICES; x++) {
-			struct pollfd *p = fds + x + nfds - UMIDI20_N_DEVICES;
-
-			p->revents = 0;
-			p->fd = umidi20_alsa[x].read_fd[0];
-			if (p->fd > -1)
-				p->events = POLLIN | POLLHUP;
-			else
-				p->events = 0;
-		}
-		umidi20_alsa_unlock();
+		snd_seq_poll_descriptors(umidi20_alsa_seq, fds, nfds, POLLIN);
 
 		x = poll(fds, nfds, 1000);
 		if (x < 0)
@@ -533,33 +507,41 @@ umidi20_alsa_worker(void *arg)
 
 					if (umidi20_alsa_addr_compare(&umidi20_alsa[x].write_addr, &event->data.connect.sender) &&
 					    umidi20_alsa_addr_compare(&self, &event->data.connect.dest)) {
-						umidi20_alsa_close_fd(&umidi20_alsa[x].write_fd[1]);
+						umidi20_pipe_free(&umidi20_alsa[x].write_fd);
 					} else if (umidi20_alsa_addr_compare(&self, &event->data.connect.sender) &&
 					    umidi20_alsa_addr_compare(&umidi20_alsa[x].read_addr, &event->data.connect.dest)) {
-						umidi20_alsa_close_fd(&umidi20_alsa[x].read_fd[0]);
+						umidi20_pipe_free(&umidi20_alsa[x].read_fd);
 					}
 				}
 			} else {
 				for (x = 0; x != UMIDI20_N_DEVICES; x++) {
-					int fd = umidi20_alsa[x].write_fd[1];
-
 					if (umidi20_alsa[x].write_addr.client != event->source.client ||
-					    umidi20_alsa[x].write_addr.port != event->source.port ||
-					    fd < 0)
+					    umidi20_alsa[x].write_addr.port != event->source.port)
 						continue;
-					umidi20_alsa_write_event(fd, event);
+					umidi20_alsa_write_event(&umidi20_alsa[x].write_fd, event);
 				}
 			}
 			snd_seq_free_event(event);
 		} while (err > 0);
+		umidi20_alsa_unlock();
+	}
+	return (NULL);
+}
 
-		for (x = 0; x != UMIDI20_N_DEVICES; x++) {
+static void *
+umidi20_alsa_tx_worker(void *arg)
+{
+	while (1) {
+		umidi20_alsa_lock();
+		while (umidi20_alsa_tx_work == 0)
+			pthread_cond_wait(&umidi20_alsa_cv, &umidi20_alsa_mtx);
+		umidi20_alsa_tx_work = 0;
+
+		for (unsigned x = 0; x != UMIDI20_N_DEVICES; x++) {
 			struct snd_seq_event temp;
-			int fd = umidi20_alsa[x].read_fd[0];
 
-			if (fd < 0)
-				continue;
-			while (umidi20_alsa_receive_seq_event(&temp, &umidi20_alsa[x].parse, fd)) {
+			while (umidi20_alsa_receive_seq_event(&temp,
+			    &umidi20_alsa[x].parse, &umidi20_alsa[x].read_fd)) {
 				snd_seq_ev_set_source(&temp, x);
 				snd_seq_ev_set_subs(&temp);
 				snd_seq_ev_set_direct(&temp);
@@ -772,6 +754,8 @@ umidi20_alsa_free_inputs(const char **ports)
 {
 	size_t x;
 
+	if (ports == NULL)
+		return;
 	for (x = 0; ports[x] != NULL; x++)
 		umidi20_alsa_free(ports[x]);
 	umidi20_alsa_free(ports);
@@ -782,105 +766,85 @@ umidi20_alsa_free_outputs(const char **ports)
 {
 	size_t x;
 
+	if (ports == NULL)
+		return;
 	for (x = 0; ports[x] != NULL; x++)
 		umidi20_alsa_free(ports[x]);
 	umidi20_alsa_free(ports);
 }
 
-static void
-umidi20_alsa_close_pipe(int *pfd)
-{
-	int fd[2];
-
-	umidi20_alsa_lock();
-	fd[0] = pfd[0];
-	fd[1] = pfd[1];
-	pfd[0] = -1;
-	pfd[1] = -1;
-	umidi20_alsa_unlock();
-
-	if (fd[0] > -1)
-		close(fd[0]);
-	if (fd[1] > -1)
-		close(fd[1]);
-}
-
-int
+struct umidi20_pipe **
 umidi20_alsa_rx_open(uint8_t n, const char *name)
 {
 	struct umidi20_alsa *puj;
-	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_alsa_init_done == 0)
-		return (-1);
+		return (NULL);
 
 	puj = &umidi20_alsa[n];
 
 	/* check if already opened */
-	if (puj->write_fd[1] > -1 || puj->write_fd[0] > -1)
-		return (-1);
+	if (puj->write_fd != NULL)
+		return (NULL);
 
 	/* find the port */
 	if (umidi20_alsa_find_port(SND_SEQ_PORT_CAP_READ |
 	    SND_SEQ_PORT_CAP_SUBS_READ, name, &puj->write_addr) < 0)
-		return (-1);
+		return (NULL);
 
 	umidi20_alsa_lock();
-	error = umidi20_pipe(puj->write_fd);
+	umidi20_pipe_alloc(&puj->write_fd, NULL);
 	umidi20_alsa_unlock();
-
-	/* create pipe */
-	if (error != 0)
-		return (-1);
 
 	/* try to connect */
 	if (snd_seq_connect_from(umidi20_alsa_seq, n,
 	    puj->write_addr.client, puj->write_addr.port)) {
-		umidi20_alsa_close_pipe(puj->write_fd);
-		return (-1);
+		umidi20_pipe_free(&puj->write_fd);
+		return (NULL);
 	}
-	return (puj->write_fd[0]);
+	return (&puj->write_fd);
 }
 
-int
+static void
+umidi20_alsa_write_callback(void)
+{
+	umidi20_alsa_lock();
+	umidi20_alsa_tx_work = 1;
+	pthread_cond_broadcast(&umidi20_alsa_cv);
+	umidi20_alsa_unlock();
+}
+
+struct umidi20_pipe **
 umidi20_alsa_tx_open(uint8_t n, const char *name)
 {
 	struct umidi20_alsa *puj;
-	int error;
 
 	if (n >= UMIDI20_N_DEVICES || umidi20_alsa_init_done == 0)
-		return (-1);
+		return (NULL);
 
 	puj = &umidi20_alsa[n];
 
 	/* check if already opened */
-	if (puj->read_fd[1] > -1 || puj->read_fd[0] > -1)
-		return (-1);
+	if (puj->read_fd != NULL)
+		return (NULL);
 
 	/* find the port */
 	if (umidi20_alsa_find_port(SND_SEQ_PORT_CAP_WRITE |
 	    SND_SEQ_PORT_CAP_SUBS_WRITE, name, &puj->read_addr) < 0)
-		return (-1);
+		return (NULL);
 
 	umidi20_alsa_lock();
-	error = umidi20_pipe(puj->read_fd);
-	if (error == 0) {
-		fcntl(puj->read_fd[0], F_SETFL, (int)O_NONBLOCK);
-		memset(&puj->parse, 0, sizeof(puj->parse));
-	}
+	umidi20_pipe_alloc(&puj->read_fd, &umidi20_alsa_write_callback);
+	memset(&puj->parse, 0, sizeof(puj->parse));
 	umidi20_alsa_unlock();
-
-	/* create pipe */
-	if (error != 0)
-		return (-1);
 
 	/* try to connect */
 	if (snd_seq_connect_to(umidi20_alsa_seq, n,
 	    puj->read_addr.client, puj->read_addr.port)) {
-		umidi20_alsa_close_pipe(puj->read_fd);
-		return (-1);
+		umidi20_pipe_free(&puj->read_fd);
+		return (NULL);
 	}
-	return (puj->read_fd[1]);
+	return (&puj->read_fd);
 }
 
 int
@@ -896,7 +860,7 @@ umidi20_alsa_rx_close(uint8_t n)
 	snd_seq_disconnect_from(umidi20_alsa_seq, n,
 	    puj->write_addr.client, puj->write_addr.port);
 
-	umidi20_alsa_close_pipe(puj->write_fd);
+	umidi20_pipe_free(&puj->write_fd);
 
 	return (0);
 }
@@ -914,7 +878,7 @@ umidi20_alsa_tx_close(uint8_t n)
 	snd_seq_disconnect_to(umidi20_alsa_seq, n,
 	    puj->read_addr.client, puj->read_addr.port);
 
-	umidi20_alsa_close_pipe(puj->read_fd);
+	umidi20_pipe_free(&puj->read_fd);
 
 	return (0);
 }
@@ -937,6 +901,7 @@ umidi20_alsa_init(const char *name)
 		return (-1);
 
 	pthread_mutex_init(&umidi20_alsa_mtx, NULL);
+	pthread_cond_init(&umidi20_alsa_cv, NULL);
 
 	/* set non-blocking mode for event handler */
 	snd_seq_nonblock(umidi20_alsa_seq, 1);
@@ -945,10 +910,8 @@ umidi20_alsa_init(const char *name)
 
 	for (n = 0; n != UMIDI20_N_DEVICES; n++) {
 		puj = &umidi20_alsa[n];
-		puj->read_fd[0] = -1;
-		puj->read_fd[1] = -1;
-		puj->write_fd[0] = -1;
-		puj->write_fd[1] = -1;
+		puj->read_fd = NULL;
+		puj->write_fd = NULL;
 
 		snd_seq_create_simple_port(umidi20_alsa_seq, umidi20_alsa_name,
 		    SND_SEQ_PORT_CAP_WRITE |
@@ -961,7 +924,8 @@ umidi20_alsa_init(const char *name)
 
 	umidi20_alsa_init_done = 1;
 
-	pthread_create(&td, NULL, &umidi20_alsa_worker, NULL);
+	pthread_create(&td, NULL, &umidi20_alsa_rx_worker, NULL);
+	pthread_create(&td, NULL, &umidi20_alsa_tx_worker, NULL);
 
 	return (0);
 }

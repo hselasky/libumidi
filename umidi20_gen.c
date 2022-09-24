@@ -152,6 +152,7 @@ uint8_t
 mid_next_key(uint8_t key, int8_t n)
 {
 	uint8_t temp;
+
 	if (n > 0) {
 		while (n--) {
 			temp = mid_add(key, mid_next_key_tab[key % 12]);
@@ -360,7 +361,7 @@ mid_extended_key_press(struct mid_data *d, uint8_t key, uint32_t freq, int8_t ve
 	} else {
 		buf0[0] = 0xF0;
 		buf0[1] = 0x0A;
-		buf0[2] = 0x55;   /* XXX */
+		buf0[2] = 0x55;		/* XXX */
 		buf0[3] = d->channel & 0x0F;
 		buf0[4] = key & 0x7F;
 		buf0[5] = vel & 0x7F;
@@ -393,7 +394,7 @@ mid_extended_key_pitch(struct mid_data *d, uint8_t key, uint32_t freq)
 
 	buf0[0] = 0xF0;
 	buf0[1] = 0x0A;
-	buf0[2] = 0x55;   /* XXX */
+	buf0[2] = 0x55;			/* XXX */
 	buf0[3] = (d->channel & 0x0F) | 0x30;
 	buf0[4] = key & 0x7F;
 	buf0[5] = 0;
@@ -418,7 +419,7 @@ mid_extended_key_control(struct mid_data *d, uint8_t key, uint8_t control, uint3
 
 	buf0[0] = 0xF0;
 	buf0[1] = 0x0A;
-	buf0[2] = 0x55;   /* XXX */
+	buf0[2] = 0x55;			/* XXX */
 	buf0[3] = (d->channel & 0x0F) | 0x20;
 	buf0[4] = key & 0x7F;
 	buf0[5] = control & 0x7F;

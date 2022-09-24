@@ -135,14 +135,14 @@ umidi20_init(void)
 	TAILQ_INIT(&root_dev.timers);
 
 	for (x = 0; x < UMIDI20_N_DEVICES; x++) {
-		root_dev.rec[x].file_no = -1;
+		root_dev.rec[x].pipe = NULL;
 		root_dev.rec[x].device_no = x;
 		root_dev.rec[x].update = 1;
 		snprintf(root_dev.rec[x].fname,
 		    sizeof(root_dev.rec[x].fname),
 		    "/dev/umidi0.%x", x);
 
-		root_dev.play[x].file_no = -1;
+		root_dev.play[x].pipe = NULL;
 		root_dev.play[x].device_no = x;
 		root_dev.play[x].update = 1;
 		snprintf(root_dev.play[x].fname,
@@ -411,7 +411,7 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
     uint32_t curr_position)
 {
 	struct umidi20_event *event;
-	int len;
+	ssize_t len;
 	uint8_t cmd[16];
 	uint8_t drop;
 	uint8_t x;
@@ -427,7 +427,7 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 	}
 	/* record */
 
-	if (dev->file_no < 0)
+	if (dev->pipe == NULL)
 		return;
 
 	/*
@@ -435,10 +435,8 @@ umidi20_watchdog_record_sub(struct umidi20_device *dev,
 	 * low, even if not recording. A length of zero
 	 * usually means end of file.
 	 */
-	if ((len = read(dev->file_no, cmd, sizeof(cmd))) <= 0) {
-		if (len == 0)
-			dev->update = 1;
-		else if (errno != EWOULDBLOCK)
+	if ((len = umidi20_pipe_read_data(dev->pipe, cmd, sizeof(cmd))) <= 0) {
+		if (len < 0)
 			dev->update = 1;
 		return;
 	}
@@ -484,7 +482,7 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 	struct umidi20_event *event;
 	struct umidi20_event *event_root;
 	uint32_t delta_position;
-	int err;
+	ssize_t err;
 	uint8_t len;
 	uint8_t drop;
 
@@ -523,7 +521,7 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 				pthread_mutex_lock(&root_dev.mutex);
 			}
-			if ((dev->file_no >= 0) &&
+			if ((dev->pipe != NULL) &&
 			    (dev->enabled_usr) &&
 			    (event->cmd[1] != 0xFF) &&
 			    (!drop)) {
@@ -538,8 +536,8 @@ umidi20_watchdog_play_sub(struct umidi20_device *dev,
 
 					/* try to write data */
 
-					err = write(dev->file_no, event->cmd + 1, len);
-					if ((err <= 0) && (errno != EWOULDBLOCK)) {
+					err = umidi20_pipe_write_data(dev->pipe, event->cmd + 1, len);
+					if (err < 0) {
 						/* try to re-open the device */
 						dev->update = 1;
 						break;
@@ -565,8 +563,8 @@ static void *
 umidi20_watchdog_files(void *arg)
 {
 	struct umidi20_device *dev;
+	struct umidi20_pipe **pipe;
 	uint32_t x;
-	int file_no;
 
 	pthread_mutex_lock(&root_dev.mutex);
 
@@ -574,17 +572,17 @@ umidi20_watchdog_files(void *arg)
 
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
 
-			dev = &(root_dev.play[x]);
+			dev = &root_dev.play[x];
 
 			if (dev->update) {
 
-				file_no = dev->file_no;
-				dev->file_no = -1;
+				pipe = dev->pipe;
+				dev->pipe = NULL;
 
-				if (file_no > 2) {
+				if (pipe != NULL) {
 					switch (dev->enabled_cfg_last) {
 					case UMIDI20_ENABLED_CFG_DEV:
-						close(file_no);
+						umidi20_cdev_tx_close(x);
 						break;
 					case UMIDI20_ENABLED_CFG_JACK:
 						umidi20_jack_tx_close(x);
@@ -604,43 +602,43 @@ umidi20_watchdog_files(void *arg)
 				}
 				switch (dev->enabled_cfg) {
 				case UMIDI20_ENABLED_CFG_DEV:
-					file_no = open(dev->fname, O_WRONLY | O_NONBLOCK);
+					pipe = umidi20_cdev_tx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_JACK:
-					file_no = umidi20_jack_tx_open(x, dev->fname);
+					pipe = umidi20_jack_tx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_COREMIDI:
-					file_no = umidi20_coremidi_tx_open(x, dev->fname);
+					pipe = umidi20_coremidi_tx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_ANDROID:
-					file_no = umidi20_android_tx_open(x, dev->fname);
+					pipe = umidi20_android_tx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_ALSA:
-					file_no = umidi20_alsa_tx_open(x, dev->fname);
+					pipe = umidi20_alsa_tx_open(x, dev->fname);
 					break;
 				default:
-					file_no = -1;
+					pipe = NULL;
 					break;
 				}
-				if (file_no >= 0) {
+				if (pipe != NULL) {
 					dev->enabled_cfg_last = dev->enabled_cfg;
 					dev->update = 0;
-					dev->file_no = file_no;
+					dev->pipe = pipe;
 				} else {
 					dev->enabled_cfg_last = UMIDI20_DISABLE_CFG;
 				}
 			}
-			dev = &(root_dev.rec[x]);
+			dev = &root_dev.rec[x];
 
 			if (dev->update) {
 
-				file_no = dev->file_no;
-				dev->file_no = -1;
+				pipe = dev->pipe;
+				dev->pipe = NULL;
 
-				if (file_no > 2) {
+				if (pipe != NULL) {
 					switch (dev->enabled_cfg_last) {
 					case UMIDI20_ENABLED_CFG_DEV:
-						close(file_no);
+						umidi20_cdev_rx_close(x);
 						break;
 					case UMIDI20_ENABLED_CFG_JACK:
 						umidi20_jack_rx_close(x);
@@ -660,32 +658,28 @@ umidi20_watchdog_files(void *arg)
 				}
 				switch (dev->enabled_cfg) {
 				case UMIDI20_ENABLED_CFG_DEV:
-					file_no = open(dev->fname, O_RDONLY | O_NONBLOCK);
+					pipe = umidi20_cdev_rx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_JACK:
-					file_no = umidi20_jack_rx_open(x, dev->fname);
+					pipe = umidi20_jack_rx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_COREMIDI:
-					file_no = umidi20_coremidi_rx_open(x, dev->fname);
+					pipe = umidi20_coremidi_rx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_ANDROID:
-					file_no = umidi20_android_rx_open(x, dev->fname);
+					pipe = umidi20_android_rx_open(x, dev->fname);
 					break;
 				case UMIDI20_ENABLED_CFG_ALSA:
-					file_no = umidi20_alsa_rx_open(x, dev->fname);
+					pipe = umidi20_alsa_rx_open(x, dev->fname);
 					break;
 				default:
-					file_no = -1;
+					pipe = NULL;
 					break;
 				}
-				if (file_no >= 0) {
-
-					/* set non-blocking I/O */
-					fcntl(file_no, F_SETFL, (int)O_NONBLOCK);
-
+				if (pipe != NULL) {
 					dev->enabled_cfg_last = dev->enabled_cfg;
 					dev->update = 0;
-					dev->file_no = file_no;
+					dev->pipe = pipe;
 				} else {
 					dev->enabled_cfg_last = UMIDI20_DISABLE_CFG;
 				}
@@ -826,6 +820,7 @@ umidi20_event_pointer(struct umidi20_event *event, uint32_t offset)
 {
 	while (1) {
 		uint32_t len = umidi20_event_get_length_first(event);
+
 		if (offset >= len) {
 			offset -= len;
 			event = event->p_next;
@@ -875,15 +870,15 @@ umidi20_event_get_what(struct umidi20_event *event)
 		case 0xFB:
 		case 0xFC:
 			return (UMIDI20_WHAT_SONG_EVENT);
-		case 0xF0:	/* SYSEX */
+		case 0xF0:		/* SYSEX */
 			if (umidi20_event_get_length(event) >= 11 &&
 			    umidi20_event_pointer(event, 1)[0] == 0x0A &&
 			    umidi20_event_pointer(event, 2)[0] == 0x55 &&
 			    (umidi20_event_pointer(event, 3)[0] & 0xF0) == 0x00) {
 				return (UMIDI20_WHAT_CHANNEL |
-					UMIDI20_WHAT_KEY |
-					UMIDI20_WHAT_VELOCITY |
-					UMIDI20_WHAT_EXTENDED_KEY);
+				    UMIDI20_WHAT_KEY |
+				    UMIDI20_WHAT_VELOCITY |
+				    UMIDI20_WHAT_EXTENDED_KEY);
 			}
 			break;
 		default:
@@ -930,7 +925,7 @@ umidi20_event_is_key_start(struct umidi20_event *event)
 uint8_t
 umidi20_event_is_key_end(struct umidi20_event *event)
 {
-  	uint32_t what = umidi20_event_get_what(event);
+	uint32_t what = umidi20_event_get_what(event);
 
 	if (what & UMIDI20_WHAT_KEY) {
 		if ((event->cmd[1] & 0xF0) == 0x80)
@@ -1027,6 +1022,7 @@ umidi20_event_get_extended_key(struct umidi20_event *event)
 
 	if (what & UMIDI20_WHAT_EXTENDED_KEY) {
 		uint32_t retval = 0;
+
 		retval |= umidi20_event_pointer(event, 6)[0] & 0x7F;
 		retval <<= 7;
 		retval |= umidi20_event_pointer(event, 7)[0] & 0x7F;
@@ -1728,6 +1724,7 @@ umidi20_gettime(struct timespec *ts)
 #ifdef __APPLE__
 	uint64_t value = (mach_absolute_time() *
 	    umidi20_timebase_info.numer) / umidi20_timebase_info.denom;
+
 	ts->tv_nsec = value % 1000000000ULL;
 	ts->tv_sec = value / 1000000000ULL;
 #else
@@ -1773,7 +1770,7 @@ umidi20_device_start(struct umidi20_device *dev,
 }
 
 static void
-umidi20_device_stop(struct umidi20_device *dev, int play_fd)
+umidi20_device_stop(struct umidi20_device *dev, struct umidi20_pipe **ppipe)
 {
 	uint32_t y;
 	uint8_t buf[4];
@@ -1783,7 +1780,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 	umidi20_convert_reset(&(dev->conv));
 	umidi20_event_queue_drain(&(dev->queue));
 
-	if (play_fd < 0)
+	if (ppipe == NULL)
 		return;
 
 	if (dev->any_key_start == 0)
@@ -1797,8 +1794,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[0] = 0xB0 | y;
 		buf[1] = 0x78;
 		buf[2] = 0;
-		while (write(play_fd, buf, 3) < 0 &&
-		    errno == EWOULDBLOCK && timeout != 0) {
+		while (umidi20_pipe_write_data(ppipe, buf, 3) != 3 && timeout != 0) {
 			usleep(10000);
 			timeout--;
 		}
@@ -1809,8 +1805,7 @@ umidi20_device_stop(struct umidi20_device *dev, int play_fd)
 		buf[0] = 0xB0 | y;
 		buf[1] = 0x40;
 		buf[2] = 0;
-		while (write(play_fd, buf, 3) < 0 &&
-		    errno == EWOULDBLOCK && timeout != 0) {
+		while (umidi20_pipe_write_data(ppipe, buf, 3) != 3 && timeout != 0) {
 			usleep(10000);
 			timeout--;
 		}
@@ -1916,13 +1911,13 @@ umidi20_stop(uint8_t flag)
 	pthread_mutex_lock(&root_dev.mutex);
 	if (flag & UMIDI20_FLAG_PLAY) {
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
-			umidi20_device_stop(&(root_dev.play[x]),
-			    root_dev.play[x].file_no);
+			umidi20_device_stop(&root_dev.play[x],
+			    root_dev.play[x].pipe);
 		}
 	}
 	if (flag & UMIDI20_FLAG_RECORD) {
 		for (x = 0; x < UMIDI20_N_DEVICES; x++) {
-			umidi20_device_stop(&(root_dev.rec[x]), -1);
+			umidi20_device_stop(&root_dev.rec[x], NULL);
 		}
 	}
 	pthread_mutex_unlock(&root_dev.mutex);
@@ -2647,16 +2642,4 @@ umidi20_track_compute_max_min(struct umidi20_track *track)
 			    (event->position - event_last->position);
 		}
 	}
-}
-
-int
-umidi20_pipe(int fd[2])
-{
-	int retval = pipe(fd);
-
-	if (retval != 0) {
-		fd[0] = -1;
-		fd[1] = -1;
-	}
-	return (retval);
 }

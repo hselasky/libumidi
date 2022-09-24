@@ -50,16 +50,16 @@ umidi20_android_free_outputs(const char **ports)
 {
 }
 
-int
+struct umidi20_pipe **
 umidi20_android_rx_open(uint8_t n, const char *name)
 {
-	return (-1);
+	return (NULL);
 }
 
-int
+struct umidi20_pipe **
 umidi20_android_tx_open(uint8_t n, const char *name)
 {
-	return (-1);
+	return (NULL);
 }
 
 int
