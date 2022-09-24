@@ -124,7 +124,8 @@ umidi20_cdev_alloc_outputs(void)
 			break;
 		}
 #endif
-		if (strcasestr(dp->d_name, "midi") != NULL) {
+		if (strstr(dp->d_name, "midi") == dp->d_name ||
+		    strstr(dp->d_name, "umidi") == dp->d_name) {
 			if (n < MAX - 1) {
 				if (asprintf(&stmp, "/dev/%s", dp->d_name) < 0)
 					continue;
