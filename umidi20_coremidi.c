@@ -310,7 +310,6 @@ umidi20_write_process(void *arg)
 						if (len == 0)
 							continue;
 
-						timeStamp = mach_absolute_time();
 						pkt = MIDIPacketListInit(&pktList);
 						pkt = MIDIPacketListAdd(&pktList, sizeof(pktList),
 						    pkt, (MIDITimeStamp) mach_absolute_time(),
