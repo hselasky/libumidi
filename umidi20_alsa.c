@@ -487,7 +487,7 @@ umidi20_alsa_rx_worker(void *arg)
 
 		snd_seq_poll_descriptors(umidi20_alsa_seq, fds, nfds, POLLIN);
 
-		x = poll(fds, nfds, 1000);
+		x = poll(fds, nfds, -1);
 		if (x < 0)
 			continue;
 
