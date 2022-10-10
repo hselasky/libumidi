@@ -518,8 +518,8 @@ umidi20_coremidi_rx_open(uint8_t n, const char *name)
 	puj = &umidi20_coremidi[n];
 
 	/* check if already opened */
-	if (puj->write_fd != NULL);
-	return (NULL);
+	if (puj->write_fd != NULL)
+		return (NULL);
 
 	y = MIDIGetNumberOfSources();
 	for (x = 0; x != y; x++) {
