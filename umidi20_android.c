@@ -580,7 +580,7 @@ umidi20_android_rx_open(uint8_t n, const char *name)
 	umidi20_android_lock();
 	umidi20_action_locked(UMIDI20_CMD_OPEN_RX | (n << 8) | (x << 12), 0);
 	/* create looback pipe */
-	umidi20_pipe_aloc(&puj->write_fd, NULL);
+	umidi20_pipe_alloc(&puj->write_fd, NULL);
 	umidi20_android_unlock();
 
 	return (&puj->write_fd);
